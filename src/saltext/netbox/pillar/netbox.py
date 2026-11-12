@@ -695,6 +695,9 @@ Example output:
               2021-02-19T06:12:04.171105Z
 """
 
+# import from salt-3006
+# pylint: disable=unused-argument,unused-variable,possibly-used-before-assignment
+
 import logging
 
 import salt.utils.http
@@ -713,9 +716,7 @@ def _get_devices(api_url, minion_id, headers, api_query_result_limit):
     params = {"name": minion_id}
     if api_query_result_limit:
         params["limit"] = api_query_result_limit
-    device_ret = salt.utils.http.query(
-        device_url, params=params, header_dict=headers, decode=True
-    )
+    device_ret = salt.utils.http.query(device_url, params=params, header_dict=headers, decode=True)
     while True:
         # Check status code for API call
         if "error" in device_ret:
@@ -754,9 +755,7 @@ def _get_virtual_machines(api_url, minion_id, headers, api_query_result_limit):
     params = {"name": minion_id}
     if api_query_result_limit:
         params["limit"] = api_query_result_limit
-    vm_ret = salt.utils.http.query(
-        vm_url, params=params, header_dict=headers, decode=True
-    )
+    vm_ret = salt.utils.http.query(vm_url, params=params, header_dict=headers, decode=True)
     while True:
         # Check status code for API call
         if "error" in vm_ret:
@@ -771,9 +770,7 @@ def _get_virtual_machines(api_url, minion_id, headers, api_query_result_limit):
             vm_results.extend(vm_ret["dict"]["results"])
         # Check if we need to paginate and fetch the next result list
         if vm_ret["dict"]["next"]:
-            vm_ret = salt.utils.http.query(
-                vm_ret["dict"]["next"], header_dict=headers, decode=True
-            )
+            vm_ret = salt.utils.http.query(vm_ret["dict"]["next"], header_dict=headers, decode=True)
         else:
             break
 
@@ -787,9 +784,7 @@ def _get_virtual_machines(api_url, minion_id, headers, api_query_result_limit):
     return vm_results
 
 
-def _get_interfaces(
-    api_url, minion_id, node_id, node_type, headers, api_query_result_limit
-):
+def _get_interfaces(api_url, minion_id, node_id, node_type, headers, api_query_result_limit):
     log.debug(
         'Retrieving interfaces for "%s"',
         node_id,
@@ -848,9 +843,7 @@ def _get_interfaces(
     return interfaces_results
 
 
-def _get_interface_ips(
-    api_url, minion_id, node_id, node_type, headers, api_query_result_limit
-):
+def _get_interface_ips(api_url, minion_id, node_id, node_type, headers, api_query_result_limit):
     # We get all the IP addresses for the node at once instead of
     # having to make a separate call for each interface
     log.debug(
@@ -909,10 +902,7 @@ def _associate_ips_to_interfaces(interfaces_list, interface_ips_list):
         if len(interface_ips_list) > 0:
             interfaces_list[interface_count]["ip_addresses"] = []
             for ip in interface_ips_list:
-                if (
-                    "assigned_object_id" in ip
-                    and ip["assigned_object_id"] == interface["id"]
-                ):
+                if "assigned_object_id" in ip and ip["assigned_object_id"] == interface["id"]:
                     del ip["assigned_object_type"]
                     del ip["assigned_object_id"]
                     del ip["assigned_object"]
@@ -980,9 +970,7 @@ def _get_connected_devices(api_url, minion_id, interfaces, headers):
     return connected_devices_result
 
 
-def _get_site_prefixes(
-    api_url, minion_id, site_name, site_id, headers, api_query_result_limit
-):
+def _get_site_prefixes(api_url, minion_id, site_name, site_id, headers, api_query_result_limit):
     log.debug(
         'Retrieving site prefixes for "%s" - site %s (ID %d)',
         minion_id,
@@ -1085,9 +1073,7 @@ def ext_pillar(minion_id, pillar, *args, **kwargs):
     if connected_devices and not interfaces:
         # connected_devices logic requires interfaces to be populated
         interfaces = True
-        log.debug(
-            "netbox pillar interfaces set to 'True' as connected_devices is 'True'"
-        )
+        log.debug("netbox pillar interfaces set to 'True' as connected_devices is 'True'")
     api_query_result_limit = kwargs.get("api_query_result_limit")
 
     ret = {}
@@ -1113,9 +1099,7 @@ def ext_pillar(minion_id, pillar, *args, **kwargs):
 
         # Check that the user has enabled interfaces if they've enabled interface_ips
     if api_query_result_limit and int(api_query_result_limit) <= 0:
-        log.error(
-            "The value for api_query_result_limit must be a postive integer if set"
-        )
+        log.error("The value for api_query_result_limit must be a postive integer if set")
         return ret
 
     # Fetch device from API
@@ -1129,9 +1113,7 @@ def ext_pillar(minion_id, pillar, *args, **kwargs):
     if devices:
         nodes.extend(_get_devices(api_url, minion_id, headers, api_query_result_limit))
     if virtual_machines:
-        nodes.extend(
-            _get_virtual_machines(api_url, minion_id, headers, api_query_result_limit)
-        )
+        nodes.extend(_get_virtual_machines(api_url, minion_id, headers, api_query_result_limit))
     if len(nodes) == 1:
         # Return the 0th (and only) item in the list
         netbox_data = nodes[0]
@@ -1157,9 +1139,7 @@ def ext_pillar(minion_id, pillar, *args, **kwargs):
     site_id = netbox_data["site"]["id"]
     site_name = netbox_data["site"]["name"]
     if site_details:
-        netbox_data["site"] = _get_site_details(
-            api_url, minion_id, site_name, site_id, headers
-        )
+        netbox_data["site"] = _get_site_details(api_url, minion_id, site_name, site_id, headers)
     if site_prefixes:
         netbox_data["site"]["prefixes"] = _get_site_prefixes(
             api_url, minion_id, site_name, site_id, headers, api_query_result_limit

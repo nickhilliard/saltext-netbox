@@ -22,9 +22,14 @@ private key file:
 .. versionadded:: 2018.3.0
 """
 
+# import from salt-3006
+# pylint: disable=unused-argument,unused-variable,implicit-str-concat,simplifiable-if-expression
+
 import logging
 import re
 
+import salt.utils.args
+import salt.utils.dictupdate
 from salt.exceptions import CommandExecutionError
 
 try:
@@ -48,8 +53,7 @@ def __virtual__():
     if not HAS_PYNETBOX:
         return (
             False,
-            "The netbox execution module cannot be loaded: "
-            "pynetbox library is not installed.",
+            "The netbox execution module cannot be loaded: " "pynetbox library is not installed.",
         )
     else:
         return True
@@ -58,9 +62,7 @@ def __virtual__():
 def _config():
     config = __salt__["config.get"]("netbox")
     if not config:
-        raise CommandExecutionError(
-            "NetBox execution module configuration could not be found"
-        )
+        raise CommandExecutionError("NetBox execution module configuration could not be found")
     return config
 
 
@@ -101,9 +103,15 @@ def _add(app, endpoint, payload):
 
 
 def slugify(value):
-    """'
+    """
     Slugify given value.
     Credit to Djangoproject https://docs.djangoproject.com/en/2.0/_modules/django/utils/text/#slugify
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt myminion netbox.slugify 'Juniper Networks'
     """
     value = re.sub(r"[^\w\s-]", "", value).strip().lower()
     return re.sub(r"[-\s]+", "-", value)
@@ -118,7 +126,7 @@ def _get(app, endpoint, id=None, auth_required=False, **kwargs):
     if id:
         item = getattr(getattr(nb, app), endpoint).get(id)
     else:
-        kwargs = __utils__["args.clean_kwargs"](**kwargs)
+        kwargs = salt.utils.args.clean_kwargs(**kwargs)
         item = getattr(getattr(nb, app), endpoint).get(**kwargs)
     return item
 
@@ -146,15 +154,15 @@ def filter_(app, endpoint, **kwargs):
 
     Returns a list of dictionaries
 
+    CLI Example:
+
     .. code-block:: bash
 
         salt myminion netbox.filter dcim devices status=1 role=router
     """
     ret = []
     nb = _nb_obj(auth_required=True if app in AUTH_ENDPOINTS else False)
-    nb_query = getattr(getattr(nb, app), endpoint).filter(
-        **__utils__["args.clean_kwargs"](**kwargs)
-    )
+    nb_query = getattr(getattr(nb, app), endpoint).filter(**salt.utils.args.clean_kwargs(**kwargs))
     if nb_query:
         ret = [_strip_url_field(dict(i)) for i in nb_query]
     return ret
@@ -172,6 +180,8 @@ def get_(app, endpoint, id=None, **kwargs):
     Returns a single dictionary
 
     To get an item based on ID.
+
+    CLI Example:
 
     .. code-block:: bash
 
@@ -411,7 +421,7 @@ def update_device(name, **kwargs):
 
         salt myminion netbox.update_device edge_router serial=JN2932920
     """
-    kwargs = __utils__["args.clean_kwargs"](**kwargs)
+    kwargs = salt.utils.args.clean_kwargs(**kwargs)
     nb_device = _get("dcim", "devices", auth_required=True, name=name)
     for k, v in kwargs.items():
         setattr(nb_device, k, v)
@@ -589,24 +599,16 @@ def openconfig_interfaces(device_name=None):
                 if if_name == interface["name"]:
                     # When that's a real unit 0 interface
                     # Otherwise it will inherit the description from the subif
-                    oc_if[if_name]["config"]["description"] = str(
-                        interface["description"]
-                    )
+                    oc_if[if_name]["config"]["description"] = str(interface["description"])
                 else:
                     subif_descr = {
                         "subinterfaces": {
                             "subinterface": {
-                                if_unit: {
-                                    "config": {
-                                        "description": str(interface["description"])
-                                    }
-                                }
+                                if_unit: {"config": {"description": str(interface["description"])}}
                             }
                         }
                     }
-                    oc_if[if_name] = __utils__["dictupdate.update"](
-                        oc_if[if_name], subif_descr
-                    )
+                    oc_if[if_name] = salt.utils.dictupdate.update(oc_if[if_name], subif_descr)
             if interface["mtu"]:
                 oc_if[if_name]["config"]["mtu"] = int(interface["mtu"])
         else:
@@ -630,9 +632,9 @@ def openconfig_interfaces(device_name=None):
             oc_if[if_name]["subinterfaces"]["subinterface"][if_unit][ipvkey] = {
                 "addresses": {"address": {}}
             }
-        oc_if[if_name]["subinterfaces"]["subinterface"][if_unit][ipvkey]["addresses"][
-            "address"
-        ][ip] = {"config": {"ip": ip, "prefix_length": int(prefix_length)}}
+        oc_if[if_name]["subinterfaces"]["subinterface"][if_unit][ipvkey]["addresses"]["address"][
+            ip
+        ] = {"config": {"ip": ip, "prefix_length": int(prefix_length)}}
     return {"interfaces": {"interface": oc_if}}
 
 
@@ -727,9 +729,7 @@ def create_interface(
     if not nb_device:
         return False
     if lag_parent:
-        lag_interface = get_(
-            "dcim", "interfaces", device_id=nb_device["id"], name=lag_parent
-        )
+        lag_interface = get_("dcim", "interfaces", device_id=nb_device["id"], name=lag_parent)
         if not lag_interface:
             return False
     if not description:
@@ -753,9 +753,7 @@ def create_interface(
         payload["lag"] = lag_interface["id"]
     if mac_address:
         payload["mac_address"] = mac_address
-    nb_interface = get_(
-        "dcim", "interfaces", device_id=nb_device["id"], name=interface_name
-    )
+    nb_interface = get_("dcim", "interfaces", device_id=nb_device["id"], name=interface_name)
     if not nb_interface:
         nb_interface = _add("dcim", "interfaces", payload)
     if nb_interface:
@@ -796,7 +794,7 @@ def update_interface(device_name, interface_name, **kwargs):
     if not nb_interface:
         return False
     else:
-        for k, v in __utils__["args.clean_kwargs"](**kwargs).items():
+        for k, v in salt.utils.args.clean_kwargs(**kwargs).items():
             setattr(nb_interface, k, v)
         try:
             nb_interface.save()
@@ -834,9 +832,7 @@ def delete_interface(device_name, interface_name):
     )
     if nb_interface:
         nb_interface.delete()
-        return {
-            "DELETE": {"dcim": {"interfaces": {nb_interface.id: nb_interface.name}}}
-        }
+        return {"DELETE": {"dcim": {"interfaces": {nb_interface.id: nb_interface.name}}}}
     return False
 
 
@@ -940,9 +936,7 @@ def create_ipaddress(ip_address, family, device=None, interface=None):
         nb_device = get_("dcim", "devices", name=device)
         if not nb_device:
             return False
-        nb_interface = get_(
-            "dcim", "interfaces", device_id=nb_device["id"], name=interface
-        )
+        nb_interface = get_("dcim", "interfaces", device_id=nb_device["id"], name=interface)
         if not nb_interface:
             return False
         nb_addr = get_(
@@ -1013,9 +1007,7 @@ def create_circuit_provider(name, asn=None):
             return False
         else:
             log.error("Duplicate provider with different ASN: %s: %s", name, asn)
-            raise CommandExecutionError(
-                f"Duplicate provider with different ASN: {name}: {asn}"
-            )
+            raise CommandExecutionError(f"Duplicate provider with different ASN: {name}: {asn}")
     else:
         payload = {"name": name, "slug": slugify(name)}
         if asn:
@@ -1124,9 +1116,7 @@ def create_circuit(name, provider_id, circuit_type, description=None):
         return False
 
 
-def create_circuit_termination(
-    circuit, interface, device, speed, xconnect_id=None, term_side="A"
-):
+def create_circuit_termination(circuit, interface, device, speed, xconnect_id=None, term_side="A"):
     """
     .. versionadded:: 2019.2.0
 
@@ -1170,10 +1160,6 @@ def create_circuit_termination(
             payload["xconnect_id"] = xconnect_id
         circuit_termination = _add("circuits", "circuit-terminations", payload)
         if circuit_termination:
-            return {
-                "circuits": {
-                    "circuit-terminations": {circuit_termination["id"]: payload}
-                }
-            }
+            return {"circuits": {"circuit-terminations": {circuit_termination["id"]: payload}}}
         else:
             return circuit_termination
