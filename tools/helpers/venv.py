@@ -9,7 +9,7 @@ from .copier import discover_project_name
 
 # Should follow the version used for relenv packages, see
 # https://github.com/saltstack/salt/blob/master/cicd/shared-gh-workflows-context.yml
-RECOMMENDED_PYVER = "3.14"
+RECOMMENDED_PYVER = "3.12"
 # For discovery of existing virtual environment, descending priority.
 VENV_DIRS = (
     ".venv",
