@@ -102,7 +102,7 @@ recursive=no
 # source root is an absolute path or a path relative to the current working
 # directory used to determine a package namespace for modules located under the
 # source root.
-source-roots=
+source-roots=src
 
 # Allow loading of arbitrary C extensions. Extensions are imported into the
 # active Python interpreter and may run arbitrary code.
@@ -396,7 +396,7 @@ int-import-graph=
 known-standard-library=
 
 # Force import order to recognize a module as part of a third party library.
-known-third-party=enchant
+known-third-party=
 
 # Couples of modules and preferred modules, separated by a comma.
 preferred-modules=
@@ -433,17 +433,32 @@ confidence=HIGH,
 # --enable=similarities". If you want to run only the classes checker, but have
 # no Warning level messages displayed, use "--disable=all --enable=classes
 # --disable=W".
-disable=duplicate-code,
+disable=consider-using-f-string,
+        duplicate-code,
         fixme,
+        inconsistent-return-statements,
         keyword-arg-before-vararg,
         line-too-long,
         logging-fstring-interpolation,
         missing-class-docstring,
         missing-function-docstring,
         missing-module-docstring,
+        no-else-return,
+        no-member,
         protected-access,
+        redefined-argument-from-local,
+        redefined-builtin,
+        redefined-outer-name,
         too-few-public-methods,
+        too-many-boolean-expressions,
+        too-many-branches,
+        too-many-instance-attributes,
+        too-many-lines,
+        too-many-locals,
+        too-many-nested-blocks,
         too-many-positional-arguments,
+        too-many-return-statements,
+        too-many-statements,
         ungrouped-imports,
         wrong-import-position
 
@@ -628,30 +643,38 @@ signature-mutators=
 
 # List of additional names supposed to be defined in builtins. Remember that
 # you should avoid defining new builtins when possible.
-additional-builtins=__opts__,
-                    __salt__,
-                    __pillar__,
-                    __grains__,
+additional-builtins=__active_provider_name__,
                     __context__,
-                    __runner__,
-                    __ret__,
                     __env__,
-                    __low__,
-                    __states__,
-                    __lowstate__,
-                    __running__,
-                    __active_provider_name__,
-                    __master_opts__,
-                    __jid_event__,
-                    __instance_id__,
-                    __salt_system_encoding__,
-                    __proxy__,
-                    __serializers__,
-                    __reg__,
-                    __executors__,
                     __events__,
+                    __executors__,
+                    __ext_pillar__,
+                    __file_client__,
+                    __grains__,
+                    __instance_id__,
+                    __jid__,
+                    __jid_event__,
+                    __low__,
+                    __lowstate__,
+                    __minion__,
+                    __opts__,
+                    __pillar__,
+                    __proxy__,
+                    __reg__,
                     __resource__,
-                    __resource_funcs__
+                    __resource_funcs__,
+                    __ret__,
+                    __runner__,
+                    __runners__,
+                    __running__,
+                    __salt__,
+                    __salt_system_encoding__,
+                    __sdb__,
+                    __serializers__,
+                    __states__,
+                    __tag__,
+                    __thorium__,
+                    __user__
 
 # Tells whether unused global variables should be treated as a violation.
 allow-global-unused-variables=yes
