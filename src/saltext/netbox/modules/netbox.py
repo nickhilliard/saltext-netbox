@@ -69,8 +69,6 @@ def _config():
 def _nb_obj(auth_required=False):
     pynb_kwargs = {}
     pynb_kwargs["token"] = _config().get("token")
-    if auth_required:
-        pynb_kwargs["private_key_file"] = _config().get("keyfile")
     return pynetbox.api(_config().get("url"), **pynb_kwargs)
 
 
