@@ -2139,8 +2139,8 @@ def test_when_we_retrieve_virtual_machine_interface_ips_and_get_http_error_then_
 
 
 def test_associate_ips_to_interfaces_then_return_list(
-    _default_kwargs, device_interfaces_list, device_ip_results, device_interfaces_ip_list
-):
+    default_kwargs, device_interfaces_list, device_ip_results, device_interfaces_ip_list
+):  # pylint: disable=unused-argument
 
     expected_result = device_interfaces_ip_list
 
@@ -2153,8 +2153,8 @@ def test_associate_ips_to_interfaces_then_return_list(
 
 
 def test_associate_empty_ip_list_to_interfaces_then_return_list(
-    _default_kwargs, device_interfaces_list, _device_ip_results
-):
+    default_kwargs, device_interfaces_list, _device_ip_results
+):  # pylint: disable=unused-argument
 
     expected_result = device_interfaces_list
 
@@ -2513,8 +2513,8 @@ def test_destination_pillar_key_routes_data_to_correct_location(
 
 
 def test_when_we_set_proxy_return_but_get_no_value_for_platform_then_error_message_should_be_logged(
-    default_kwargs, _headers, device_results
-):
+    default_kwargs, headers, device_results
+):  # pylint: disable=unused-argument
 
     default_kwargs["site_details"] = False
     default_kwargs["site_prefixes"] = False
@@ -2537,8 +2537,8 @@ def test_when_we_set_proxy_return_but_get_no_value_for_platform_then_error_messa
 
 
 def test_when_we_set_proxy_return_but_get_no_value_for_primary_ip_then_error_message_should_be_logged(
-    default_kwargs, _headers, device_results
-):
+    default_kwargs, headers, device_results
+):  # pylint: disable=unused-argument
 
     default_kwargs["site_details"] = False
     default_kwargs["site_prefixes"] = False
