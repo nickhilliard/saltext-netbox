@@ -179,6 +179,7 @@ jobs:
           name: ${{ github.job }}-Py${{ matrix.python-version }}-Salt${{ matrix.salt-version }}
 
   macOS:
+    if: vars.ENABLE_MACOS_CI == 'true'  # disable unless explicitly enabled. This is due to GH not starting salt runners correctly for the macos target
     runs-on: macos-15
     timeout-minutes: 40
 
