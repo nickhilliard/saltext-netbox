@@ -566,7 +566,7 @@ def openconfig_interfaces(device_name=None):
     .. versionadded:: 2019.2.0
 
     Return a dictionary structured as standardised in the
-    `openconfig-interfaces <http://ops.openconfig.net/branches/models/master/openconfig-interfaces.html>`_
+    `openconfig-interfaces <https://openconfig.net/projects/models/schemadocs/>`_
     YANG model, containing physical and configuration data available in Netbox,
     e.g., IP addresses, MTU, enabled / disabled, etc.
 
@@ -641,7 +641,7 @@ def openconfig_lacp(device_name=None):
     .. versionadded:: 2019.2.0
 
     Return a dictionary structured as standardised in the
-    `openconfig-lacp <http://ops.openconfig.net/branches/models/master/openconfig-lacp.html>`_
+    `openconfig-lacp <https://openconfig.net/projects/models/schemadocs/>`_
     YANG model, with configuration data for Link Aggregation Control Protocol
     (LACP) for aggregate interfaces.
 
@@ -649,8 +649,8 @@ def openconfig_lacp(device_name=None):
         The ``interval`` and ``lacp_mode`` keys have the values set as ``SLOW``
         and ``ACTIVE`` respectively, as this data is not currently available
         in Netbox, therefore defaulting to the values defined in the standard.
-        See `interval <http://ops.openconfig.net/branches/models/master/docs/openconfig-lacp.html#lacp-interfaces-interface-config-interval>`_
-        and `lacp-mode <http://ops.openconfig.net/branches/models/master/docs/openconfig-lacp.html#lacp-interfaces-interface-config-lacp-mode>`_
+        See `interval` <https://openconfig.net/projects/models/schemadocs/viewer/?file=jstree/openconfig-lacp.html>`_
+        and `lacp-mode <https://openconfig.net/projects/models/schemadocs/viewer/?file=jstree/openconfig-lacp.html>`_
         for further details.
 
     device_name: ``None``

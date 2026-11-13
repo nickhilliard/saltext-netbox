@@ -7,7 +7,7 @@ Configuring the NetBox ext_pillar
 ---------------------------------
 
 To use this pillar, you must first create a token in your NetBox instance at
-http://netbox.example.com/user/api-tokens/ (substituting the hostname of your
+``http://netbox.example.com/user/api-tokens/`` (substituting the hostname of your
 NetBox instance)
 
 The NetBox api_url and api_token must be set in the master
