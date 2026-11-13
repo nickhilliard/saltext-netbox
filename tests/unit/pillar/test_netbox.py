@@ -2153,7 +2153,7 @@ def test_associate_ips_to_interfaces_then_return_list(
 
 
 def test_associate_empty_ip_list_to_interfaces_then_return_list(
-    default_kwargs, device_interfaces_list, _device_ip_results
+    default_kwargs, device_interfaces_list, device_ip_results
 ):  # pylint: disable=unused-argument
 
     expected_result = device_interfaces_list
