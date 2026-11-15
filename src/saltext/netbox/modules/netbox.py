@@ -115,14 +115,31 @@ def slugify(value):
     return re.sub(r"[-\s]+", "-", value)
 
 
+def _validate_id(value):
+    """
+    Return ``value`` as a positive integer NetBox object ID.
+
+    pynetbox puts the ID into the request path without encoding it, so a
+    value such as ``../sites/1`` would address a different object.
+    Only accept plain positive integers.
+    """
+    if isinstance(value, bool):
+        raise CommandExecutionError(f"Invalid NetBox object id: {value!r}")
+    if isinstance(value, str) and value.strip().isdigit():
+        value = int(value)
+    if not isinstance(value, int) or value <= 0:
+        raise CommandExecutionError(f"Invalid NetBox object id: {value!r}")
+    return value
+
+
 def _get(app, endpoint, id=None, auth_required=False, **kwargs):
     """
     Helper function to do a GET request to Netbox.
     Returns the actual pynetbox object, which allows manipulation from other functions.
     """
     nb = _nb_obj(auth_required=auth_required)
-    if id:
-        item = getattr(getattr(nb, app), endpoint).get(id)
+    if id is not None:
+        item = getattr(getattr(nb, app), endpoint).get(_validate_id(id))
     else:
         kwargs = salt.utils.args.clean_kwargs(**kwargs)
         item = getattr(getattr(nb, app), endpoint).get(**kwargs)
@@ -507,7 +524,12 @@ def delete_inventory_item(item_id):
 
         salt myminion netbox.delete_inventory_item 1354
     """
+    # Validate here as well as in _get(): _get() treats id=None as "no id" and
+    # does an unfiltered lookup, which would delete the only object if there is one.
+    item_id = _validate_id(item_id)
     nb_inventory_item = _get("dcim", "inventory-items", auth_required=True, id=item_id)
+    if not nb_inventory_item:
+        return False
     nb_inventory_item.delete()
     return {"DELETE": {"dcim": {"inventory-items": item_id}}}
 
@@ -973,6 +995,9 @@ def delete_ipaddress(ipaddr_id):
         salt myminion netbox.delete_ipaddress 9002
     """
 
+    # Validate here as well as in _get(): _get() treats id=None as "no id" and
+    # does an unfiltered lookup, which would delete the only object if there is one.
+    ipaddr_id = _validate_id(ipaddr_id)
     nb_ipaddr = _get("ipam", "ip-addresses", auth_required=True, id=ipaddr_id)
     if nb_ipaddr:
         nb_ipaddr.delete()
