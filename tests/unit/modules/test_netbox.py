@@ -191,3 +191,67 @@ def test_delete_inventory_item_none_does_not_delete_the_only_item(fake_netbox):
         assert not fake_netbox.requests
     finally:
         del fake_netbox.collections["dcim/inventory-items"]
+
+
+@pytest.mark.parametrize(
+    "attrs",
+    [
+        {"id": "../../users/users/1"},
+        {"id": 2},
+        {"url": "http://evil.example/"},
+        {"endpoint": "x"},
+        {"api": "x"},
+        {"has_details": True},
+        {"default_ret": "x"},
+        {"_init_cache": []},
+        {"_full_cache": []},
+        {"save": "x"},
+        {"delete": "x"},
+        {"serial": "OK", "id": 3},
+    ],
+)
+def test_update_device_rejects_reserved_attributes(fake_netbox, attrs):
+    with pytest.raises(CommandExecutionError, match="reserved"):
+        netbox.update_device("minion1", **attrs)
+    assert not [r for r in fake_netbox.requests if r[0] == "PATCH"]
+
+
+def test_update_device_cannot_patch_another_object(fake_netbox):
+    """
+    End-to-end with real pynetbox: before the fix, this sent
+    PATCH /api/dcim/sites/1/.
+    """
+    with pytest.raises(CommandExecutionError):
+        netbox.update_device("minion1", id="../../dcim/sites/1", description="pwned")
+    assert not [r for r in fake_netbox.requests if r[0] == "PATCH"]
+
+
+def test_update_device_regular_fields(fake_netbox):
+    ret = netbox.update_device("minion1", serial="XYZ789")
+    assert ret == {"dcim": {"devices": {"serial": "XYZ789"}}}
+    method, path, _, body = fake_netbox.requests[-1]
+    assert (method, path) == ("PATCH", "/api/dcim/devices/1/")
+    assert body == {"serial": "XYZ789"}
+
+
+def test_update_device_allows_related_object_fields(fake_netbox):
+    """
+    Fields that pynetbox models as related objects on the device class
+    (device_type, primary_ip4, ...) must remain updatable.
+    """
+    ret = netbox.update_device("minion1", device_type=2, primary_ip4=101)
+    assert ret
+    method, path, _, body = fake_netbox.requests[-1]
+    assert (method, path) == ("PATCH", "/api/dcim/devices/1/")
+    assert body == {"device_type": 2, "primary_ip4": 101}
+
+
+def test_update_device_missing_device_returns_false(fake_netbox):
+    assert netbox.update_device("no-such-device", serial="X") is False
+    assert not [r for r in fake_netbox.requests if r[0] == "PATCH"]
+
+
+def test_update_interface_rejects_reserved_attributes(fake_netbox):
+    with pytest.raises(CommandExecutionError, match="reserved"):
+        netbox.update_interface("minion1", "lo0", id="../../users/tokens/1", description="x")
+    assert not [r for r in fake_netbox.requests if r[0] == "PATCH"]

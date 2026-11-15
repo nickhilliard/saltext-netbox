@@ -132,6 +132,32 @@ def _validate_id(value):
     return value
 
 
+def _record_updates(kwargs):
+    """
+    Return the attributes that may be set on a pynetbox record.
+
+    pynetbox builds the URL used by ``Record.save()`` from the record's
+    ``id`` (and keeps its own state in attributes such as ``url``,
+    ``endpoint`` and ``api``), so setting those from user input would
+    redirect the update to an arbitrary object.
+    """
+    kwargs = salt.utils.args.clean_kwargs(**kwargs)
+    record_cls = pynetbox.core.response.Record
+    internal = getattr(record_cls, "_INTERNAL_ATTRS", frozenset())
+    reserved = sorted(
+        str(key)
+        for key in kwargs
+        if not isinstance(key, str) or key.startswith("_") or key == "id" or key in internal
+        # methods and properties of the base record class (save, delete, url, ...)
+        or hasattr(record_cls, key)
+    )
+    if reserved:
+        raise CommandExecutionError(
+            f"Refusing to update reserved NetBox record attribute(s): {', '.join(reserved)}"
+        )
+    return kwargs
+
+
 def _get(app, endpoint, id=None, auth_required=False, **kwargs):
     """
     Helper function to do a GET request to Netbox.
@@ -436,8 +462,10 @@ def update_device(name, **kwargs):
 
         salt myminion netbox.update_device edge_router serial=JN2932920
     """
-    kwargs = salt.utils.args.clean_kwargs(**kwargs)
     nb_device = _get("dcim", "devices", auth_required=True, name=name)
+    if not nb_device:
+        return False
+    kwargs = _record_updates(kwargs)
     for k, v in kwargs.items():
         setattr(nb_device, k, v)
     try:
@@ -814,7 +842,7 @@ def update_interface(device_name, interface_name, **kwargs):
     if not nb_interface:
         return False
     else:
-        for k, v in salt.utils.args.clean_kwargs(**kwargs).items():
+        for k, v in _record_updates(kwargs).items():
             setattr(nb_interface, k, v)
         try:
             nb_interface.save()
