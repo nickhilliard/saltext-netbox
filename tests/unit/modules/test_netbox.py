@@ -6,10 +6,12 @@ Ported from Salt 3006 (``tests/unit/modules/test_netbox.py``).
 :codeauthor: :email:`Zach Moody <zmoody@do.co>`
 """
 
+import logging
 from unittest.mock import MagicMock
 from unittest.mock import call
 from unittest.mock import patch
 
+import pynetbox
 import pytest
 from salt.exceptions import CommandExecutionError
 
@@ -44,6 +46,78 @@ def mocked_clean_kwargs_get(**kwargs):  # pylint: disable=unused-argument
 @pytest.fixture
 def configure_loader_modules():
     return {netbox: {}}
+
+
+def test_redact_headers_hides_the_token_keeps_the_rest():
+    headers = {
+        "Authorization": f"Token {API_TOKEN}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    redacted = netbox._redact_headers(headers)
+    assert redacted["Authorization"] == "***redacted***"
+    assert redacted["Content-Type"] == "application/json"
+    assert redacted["Accept"] == "application/json"
+    # the caller's headers are not mutated
+    assert headers["Authorization"] == f"Token {API_TOKEN}"
+
+
+def test_redact_headers_is_case_insensitive_and_handles_none():
+    empty = netbox._redact_headers(None)
+    assert isinstance(empty, dict)
+    assert not empty
+    redacted = netbox._redact_headers(
+        {"AUTHORIZATION": f"Token {API_TOKEN}", "Cookie": "sessionid=secret"}
+    )
+    assert redacted["AUTHORIZATION"] == "***redacted***"
+    assert redacted["Cookie"] == "***redacted***"
+
+
+def test_failed_request_logs_redacted_headers(fake_netbox, caplog):
+    """
+    A NetBox error (here an unknown endpoint, so a 404 on create) logs the
+    request headers for debugging, but the Authorization token is redacted.
+    """
+    with caplog.at_level(logging.DEBUG, logger=netbox.__name__):
+        assert netbox._add("dcim", "no-such-endpoint", {"name": "x"}) is False
+    assert [r[0] for r in fake_netbox.requests] == ["POST"]
+    assert "NetBox request failed: POST" in caplog.text
+    assert "404" in caplog.text
+    # the headers are logged ...
+    assert "headers:" in caplog.text
+    assert "authorization" in caplog.text.lower()
+    # ... but the token itself is not
+    assert API_TOKEN not in caplog.text
+    assert "***redacted***" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "call,lookup_fails",
+    [
+        (lambda: netbox.update_device("minion1", serial="X"), False),
+        (lambda: netbox.update_interface("minion1", "lo0", description="x"), False),
+        (lambda: netbox.create_device("r1", "router", "MX480", "Juniper", "site1"), True),
+    ],
+)
+def test_update_and_create_errors_redact_the_token(caplog, call, lookup_fails):
+    response = MagicMock(status_code=400, url="http://netbox/api/dcim/devices/1/", text="bad")
+    response.request.method = "PATCH"
+    response.request.headers = {"Authorization": f"Token {API_TOKEN}"}
+    response.request.body = b"{}"
+    response.json.return_value = {"detail": "bad"}
+    error = pynetbox.RequestError(response)
+    record = MagicMock()
+    record.save.side_effect = error
+    lookup = MagicMock(side_effect=error) if lookup_fails else MagicMock(return_value={"id": 1})
+    with (
+        patch.object(netbox, "_get", MagicMock(return_value=record)),
+        patch.object(netbox, "get_", lookup),
+    ):
+        with caplog.at_level(logging.DEBUG, logger=netbox.__name__):
+            assert call() is False
+    assert "NetBox request failed" in caplog.text
+    assert "***redacted***" in caplog.text
+    assert API_TOKEN not in caplog.text
 
 
 @pytest.fixture(autouse=True)

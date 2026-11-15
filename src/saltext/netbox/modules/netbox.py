@@ -88,6 +88,47 @@ def _dict(iterable):
         return {}
 
 
+# Request headers whose value must never be written to the log: they carry
+# the NetBox API token (or other credentials).
+SENSITIVE_HEADERS = frozenset({"authorization", "cookie", "proxy-authorization", "x-api-key"})
+
+
+def _redact_headers(headers):
+    """
+    Return a plain ``dict`` copy of ``headers`` with the value of any
+    sensitive header (notably ``Authorization``, which holds the API token)
+    replaced, so the headers can be logged without leaking credentials.
+    """
+    redacted = {}
+    for name, value in dict(headers or {}).items():
+        if str(name).lower() in SENSITIVE_HEADERS:
+            redacted[name] = "***redacted***"
+        else:
+            redacted[name] = value
+    return redacted
+
+
+def _log_request_error(exc):
+    """
+    Log a failed NetBox request, including the request headers.
+
+    The ``Authorization`` header holds the API token, so the headers are
+    passed through :func:`_redact_headers` first and the token is never
+    written to the log.
+    """
+    req = exc.req
+    request = getattr(req, "request", None)
+    log.error(
+        "NetBox request failed: %s %s returned %s: %s (headers: %s)",
+        getattr(request, "method", None),
+        req.url,
+        req.status_code,
+        exc.error,
+        _redact_headers(getattr(request, "headers", None)),
+    )
+    log.debug("NetBox request body: %s", exc.request_body)
+
+
 def _add(app, endpoint, payload):
     """
     POST a payload
@@ -96,7 +137,7 @@ def _add(app, endpoint, payload):
     try:
         return getattr(getattr(nb, app), endpoint).create(**payload)
     except pynetbox.RequestError as e:
-        log.error("%s, %s, %s", e.req.request.headers, e.request_body, e.error)
+        _log_request_error(e)
         return False
 
 
@@ -427,7 +468,7 @@ def create_device(name, role, model, manufacturer, site):
 
         status = {"label": "Active", "value": 1}
     except pynetbox.RequestError as e:
-        log.error("%s, %s, %s", e.req.request.headers, e.request_body, e.error)
+        _log_request_error(e)
         return False
 
     payload = {
@@ -472,7 +513,7 @@ def update_device(name, **kwargs):
         nb_device.save()
         return {"dcim": {"devices": kwargs}}
     except pynetbox.RequestError as e:
-        log.error("%s, %s, %s", e.req.request.headers, e.request_body, e.error)
+        _log_request_error(e)
         return False
 
 
@@ -848,7 +889,7 @@ def update_interface(device_name, interface_name, **kwargs):
             nb_interface.save()
             return {"dcim": {"interfaces": {nb_interface.id: dict(nb_interface)}}}
         except pynetbox.RequestError as e:
-            log.error("%s, %s, %s", e.req.request.headers, e.request_body, e.error)
+            _log_request_error(e)
             return False
 
 
