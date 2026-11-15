@@ -18,6 +18,14 @@ private key file:
     url: <NETBOX_URL>
     token: <NETBOX_USERNAME_API_TOKEN (OPTIONAL)>
     keyfile: </PATH/TO/NETBOX/KEY (OPTIONAL)>
+    allowed_apps: <LIST OF NETBOX APPS (OPTIONAL)>
+
+``netbox.get`` and ``netbox.filter`` take the NetBox app and endpoint from
+the caller. To stop callers from reading parts of the NetBox API that hold
+sensitive data (API tokens, users, configuration), only the apps listed in
+``allowed_apps`` can be used. The default is ``circuits``, ``dcim``,
+``ipam``, ``tenancy``, ``virtualization``, ``vpn`` and ``wireless``.
+Add other apps (e.g. ``extras``) here if you need them.
 
 .. versionadded:: 2018.3.0
 """
@@ -42,6 +50,9 @@ except ImportError:
 log = logging.getLogger(__name__)
 
 AUTH_ENDPOINTS = ("secrets",)
+
+DEFAULT_ALLOWED_APPS = ("circuits", "dcim", "ipam", "tenancy", "virtualization", "vpn", "wireless")
+ENDPOINT_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
 
 __func_alias__ = {"filter_": "filter", "get_": "get"}
 
@@ -70,6 +81,34 @@ def _nb_obj(auth_required=False):
     pynb_kwargs = {}
     pynb_kwargs["token"] = _config().get("token")
     return pynetbox.api(_config().get("url"), **pynb_kwargs)
+
+
+def _allowed_apps():
+    allowed = _config().get("allowed_apps")
+    if allowed is None:
+        return set(DEFAULT_ALLOWED_APPS)
+    if isinstance(allowed, str):
+        allowed = [allowed]
+    if not isinstance(allowed, (list, tuple, set)):
+        raise CommandExecutionError("netbox:allowed_apps must be a list of NetBox app names")
+    return {str(app) for app in allowed}
+
+
+def _endpoint(nb, app, endpoint):
+    """
+    Return the pynetbox endpoint ``app``/``endpoint`` after checking that
+    the caller is allowed to use it.
+
+    Without this, callers could read any part of the NetBox API (users,
+    tokens, ...), reach other attributes of the pynetbox objects, or
+    traverse to other paths with an endpoint such as ``devices/../../x``.
+    """
+    if not isinstance(app, str) or app not in _allowed_apps():
+        raise CommandExecutionError(f"NetBox app not allowed: {app!r}")
+    reserved = {"api", "name", "model"} | set(dir(pynetbox.core.app.App))
+    if not isinstance(endpoint, str) or not ENDPOINT_RE.match(endpoint) or endpoint in reserved:
+        raise CommandExecutionError(f"Invalid NetBox endpoint: {endpoint!r}")
+    return getattr(getattr(nb, app), endpoint)
 
 
 def _strip_url_field(input_dict):
@@ -135,7 +174,7 @@ def _add(app, endpoint, payload):
     """
     nb = _nb_obj(auth_required=True)
     try:
-        return getattr(getattr(nb, app), endpoint).create(**payload)
+        return _endpoint(nb, app, endpoint).create(**payload)
     except pynetbox.RequestError as e:
         _log_request_error(e)
         return False
@@ -206,10 +245,10 @@ def _get(app, endpoint, id=None, auth_required=False, **kwargs):
     """
     nb = _nb_obj(auth_required=auth_required)
     if id is not None:
-        item = getattr(getattr(nb, app), endpoint).get(_validate_id(id))
+        item = _endpoint(nb, app, endpoint).get(_validate_id(id))
     else:
         kwargs = salt.utils.args.clean_kwargs(**kwargs)
-        item = getattr(getattr(nb, app), endpoint).get(**kwargs)
+        item = _endpoint(nb, app, endpoint).get(**kwargs)
     return item
 
 
@@ -244,7 +283,7 @@ def filter_(app, endpoint, **kwargs):
     """
     ret = []
     nb = _nb_obj(auth_required=True if app in AUTH_ENDPOINTS else False)
-    nb_query = getattr(getattr(nb, app), endpoint).filter(**salt.utils.args.clean_kwargs(**kwargs))
+    nb_query = _endpoint(nb, app, endpoint).filter(**salt.utils.args.clean_kwargs(**kwargs))
     if nb_query:
         ret = [_strip_url_field(dict(i)) for i in nb_query]
     return ret

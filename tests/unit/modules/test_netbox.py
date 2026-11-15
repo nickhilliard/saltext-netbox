@@ -122,8 +122,9 @@ def test_update_and_create_errors_redact_the_token(caplog, call, lookup_fails):
 
 @pytest.fixture(autouse=True)
 def _mock_config():
-    with patch.object(netbox, "_config", MagicMock()):
-        yield
+    config = {"url": "http://netbox.invalid", "token": "0123456789abcdef"}
+    with patch.object(netbox, "_config", MagicMock(return_value=config)):
+        yield config
 
 
 @pytest.fixture(scope="module")
@@ -329,3 +330,85 @@ def test_update_interface_rejects_reserved_attributes(fake_netbox):
     with pytest.raises(CommandExecutionError, match="reserved"):
         netbox.update_interface("minion1", "lo0", id="../../users/tokens/1", description="x")
     assert not [r for r in fake_netbox.requests if r[0] == "PATCH"]
+
+
+@pytest.mark.parametrize(
+    "app,endpoint",
+    [
+        ("users", "tokens"),
+        ("users", "users"),
+        ("core", "data-sources"),
+        ("extras", "config-contexts"),
+        ("plugins", "anything"),
+        ("secrets", "secrets"),
+        ("http_session", "__dict__"),
+        ("dcim", "devices/../../users/tokens"),
+        ("dcim", "../users"),
+        ("dcim", "api"),
+        ("dcim", "name"),
+        ("dcim", "config"),
+        ("dcim", "models"),
+        ("dcim", "_setmodel"),
+        ("dcim", "Devices"),
+        ("dcim", ""),
+        ("dcim", None),
+        (None, "devices"),
+    ],
+)
+def test_disallowed_apps_and_endpoints(app, endpoint):
+    with patch("pynetbox.api", MagicMock()) as mock:
+        for call_ in (
+            lambda: netbox.get_(app, endpoint, name="x"),
+            lambda: netbox.get_(app, endpoint, id=1),
+            lambda: netbox.filter_(app, endpoint, name="x"),
+            lambda: netbox._add(app, endpoint, {"name": "x"}),
+        ):
+            with pytest.raises(CommandExecutionError):
+                call_()
+        # pynetbox.api() may have been called, but nothing was looked up on it
+        assert not [c for c in mock.mock_calls if c[0] not in ("", "()")]
+
+
+@pytest.mark.parametrize(
+    "app,endpoint",
+    [
+        ("dcim", "devices"),
+        ("dcim", "inventory-items"),
+        ("dcim", "inventory_items"),
+        ("ipam", "ip-addresses"),
+        ("circuits", "circuit-terminations"),
+        ("tenancy", "tenants"),
+        ("virtualization", "virtual-machines"),
+        ("vpn", "tunnels"),
+        ("wireless", "wireless-lans"),
+    ],
+)
+def test_allowed_apps_and_endpoints(app, endpoint):
+    with patch("pynetbox.api", MagicMock()) as mock:
+        netbox.filter_(app, endpoint, name="x")
+        assert mock.mock_calls[1] == getattr(getattr(call(), app), endpoint).filter(name="x")
+
+
+def test_allowed_apps_can_be_configured(_mock_config):
+    _mock_config["allowed_apps"] = ["extras"]
+    with patch("pynetbox.api", MagicMock()) as mock:
+        netbox.filter_("extras", "tags")
+        assert mock.mock_calls[1] == call().extras.tags.filter()
+        with pytest.raises(CommandExecutionError):
+            netbox.filter_("dcim", "devices")
+
+
+def test_allowed_apps_must_be_a_list(_mock_config):
+    _mock_config["allowed_apps"] = {"dcim": True}
+    with pytest.raises(CommandExecutionError, match="allowed_apps"):
+        netbox.filter_("dcim", "devices")
+
+
+def test_endpoint_traversal_does_not_reach_another_path(fake_netbox):
+    """
+    End-to-end with real pynetbox: before the fix, this fetched
+    /api/users/tokens/5/.
+    """
+    with pytest.raises(CommandExecutionError):
+        netbox.get_("dcim", "devices/../../users/tokens", id=5)
+    assert not fake_netbox.requests
