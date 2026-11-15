@@ -8,16 +8,13 @@ Module to query NetBox
 :maturity:   new
 :depends:    pynetbox
 
-The following config should be in the minion config file. In order to
-work with ``secrets`` you should provide a token and path to your
-private key file:
+The following config should be in the minion config file:
 
 .. code-block:: yaml
 
   netbox:
     url: <NETBOX_URL>
     token: <NETBOX_USERNAME_API_TOKEN (OPTIONAL)>
-    keyfile: </PATH/TO/NETBOX/KEY (OPTIONAL)>
     allowed_apps: <LIST OF NETBOX APPS (OPTIONAL)>
 
 ``netbox.get`` and ``netbox.filter`` take the NetBox app and endpoint from
@@ -49,8 +46,6 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
-AUTH_ENDPOINTS = ("secrets",)
-
 DEFAULT_ALLOWED_APPS = ("circuits", "dcim", "ipam", "tenancy", "virtualization", "vpn", "wireless")
 ENDPOINT_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
 
@@ -77,7 +72,7 @@ def _config():
     return config
 
 
-def _nb_obj(auth_required=False):
+def _nb_obj():
     pynb_kwargs = {}
     pynb_kwargs["token"] = _config().get("token")
     return pynetbox.api(_config().get("url"), **pynb_kwargs)
@@ -172,7 +167,7 @@ def _add(app, endpoint, payload):
     """
     POST a payload
     """
-    nb = _nb_obj(auth_required=True)
+    nb = _nb_obj()
     try:
         return _endpoint(nb, app, endpoint).create(**payload)
     except pynetbox.RequestError as e:
@@ -238,12 +233,12 @@ def _record_updates(kwargs):
     return kwargs
 
 
-def _get(app, endpoint, id=None, auth_required=False, **kwargs):
+def _get(app, endpoint, id=None, **kwargs):
     """
     Helper function to do a GET request to Netbox.
     Returns the actual pynetbox object, which allows manipulation from other functions.
     """
-    nb = _nb_obj(auth_required=auth_required)
+    nb = _nb_obj()
     if id is not None:
         item = _endpoint(nb, app, endpoint).get(_validate_id(id))
     else:
@@ -282,7 +277,7 @@ def filter_(app, endpoint, **kwargs):
         salt myminion netbox.filter dcim devices status=1 role=router
     """
     ret = []
-    nb = _nb_obj(auth_required=True if app in AUTH_ENDPOINTS else False)
+    nb = _nb_obj()
     nb_query = _endpoint(nb, app, endpoint).filter(**salt.utils.args.clean_kwargs(**kwargs))
     if nb_query:
         ret = [_strip_url_field(dict(i)) for i in nb_query]
@@ -320,7 +315,6 @@ def get_(app, endpoint, id=None, **kwargs):
             app,
             endpoint,
             id=id,
-            auth_required=True if app in AUTH_ENDPOINTS else False,
             **kwargs,
         )
     )
@@ -542,7 +536,7 @@ def update_device(name, **kwargs):
 
         salt myminion netbox.update_device edge_router serial=JN2932920
     """
-    nb_device = _get("dcim", "devices", auth_required=True, name=name)
+    nb_device = _get("dcim", "devices", name=name)
     if not nb_device:
         return False
     kwargs = _record_updates(kwargs)
@@ -635,7 +629,7 @@ def delete_inventory_item(item_id):
     # Validate here as well as in _get(): _get() treats id=None as "no id" and
     # does an unfiltered lookup, which would delete the only object if there is one.
     item_id = _validate_id(item_id)
-    nb_inventory_item = _get("dcim", "inventory-items", auth_required=True, id=item_id)
+    nb_inventory_item = _get("dcim", "inventory-items", id=item_id)
     if not nb_inventory_item:
         return False
     nb_inventory_item.delete()
@@ -913,7 +907,6 @@ def update_interface(device_name, interface_name, **kwargs):
     nb_interface = _get(
         "dcim",
         "interfaces",
-        auth_required=True,
         device_id=nb_device["id"],
         name=interface_name,
     )
@@ -954,7 +947,6 @@ def delete_interface(device_name, interface_name):
     nb_interface = _get(
         "dcim",
         "interfaces",
-        auth_required=True,
         device_id=nb_device["id"],
         name=interface_name,
     )
@@ -1106,7 +1098,7 @@ def delete_ipaddress(ipaddr_id):
     # Validate here as well as in _get(): _get() treats id=None as "no id" and
     # does an unfiltered lookup, which would delete the only object if there is one.
     ipaddr_id = _validate_id(ipaddr_id)
-    nb_ipaddr = _get("ipam", "ip-addresses", auth_required=True, id=ipaddr_id)
+    nb_ipaddr = _get("ipam", "ip-addresses", id=ipaddr_id)
     if nb_ipaddr:
         nb_ipaddr.delete()
         return {"DELETE": {"ipam": {"ip-address": ipaddr_id}}}

@@ -412,3 +412,25 @@ def test_endpoint_traversal_does_not_reach_another_path(fake_netbox):
     with pytest.raises(CommandExecutionError):
         netbox.get_("dcim", "devices/../../users/tokens", id=5)
     assert not fake_netbox.requests
+
+
+@pytest.mark.parametrize(
+    "func",
+    [
+        lambda: netbox.get_("dcim", "devices", name="minion1"),
+        lambda: netbox.filter_("dcim", "devices", site="site1"),
+        lambda: netbox.update_device("minion1", serial="X"),
+        lambda: netbox.delete_ipaddress(1),
+    ],
+)
+def test_reads_and_writes_build_the_same_client(_mock_config, func):
+    """
+    Every call builds the pynetbox client from just the URL and token;
+    there is no separate "authenticated" client any more.
+    """
+    with patch("pynetbox.api", MagicMock()) as mock:
+        func()
+    assert mock.call_args_list
+    for client_call in mock.call_args_list:
+        assert client_call.args == (_mock_config["url"],)
+        assert client_call.kwargs == {"token": _mock_config["token"]}
