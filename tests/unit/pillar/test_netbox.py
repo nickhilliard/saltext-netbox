@@ -2,11 +2,14 @@
 :codeauthor: Gary T. Giesen <ggiesen@giesen.me>
 """
 
+import socket
 from unittest.mock import patch
 
 import pytest
 
 from saltext.netbox.pillar import netbox
+from tests.support.fake_netbox import API_TOKEN
+from tests.support.fake_netbox import FakeNetBox
 
 
 @pytest.fixture
@@ -1888,22 +1891,20 @@ def test_when_we_retrieve_a_single_device_then_return_list(default_kwargs, heade
         assert actual_result == expected_result
 
 
-def test_when_we_retrieve_a_device_and_get_http_error_then_return_empty_list(
+def test_when_we_retrieve_a_device_and_get_http_error_then_raise(
     default_kwargs, headers, http_error
 ):
-    expected_result = []
 
     with patch("salt.utils.http.query", autospec=True) as query:
         query.return_value = http_error
 
-        actual_result = netbox._get_devices(
-            default_kwargs["api_url"],
-            default_kwargs["minion_id"],
-            headers,
-            default_kwargs["api_query_result_limit"],
-        )
-
-        assert actual_result == expected_result
+        with pytest.raises(netbox.NetBoxQueryError, match="HTTP 404: Not Found"):
+            netbox._get_devices(
+                default_kwargs["api_url"],
+                default_kwargs["minion_id"],
+                headers,
+                default_kwargs["api_query_result_limit"],
+            )
 
 
 def test_when_we_retrieve_a_single_virtual_machine_then_return_list(
@@ -1925,23 +1926,20 @@ def test_when_we_retrieve_a_single_virtual_machine_then_return_list(
         assert actual_result == expected_result
 
 
-def test_when_we_retrieve_a_virtual_machine_and_get_http_error_then_return_empty_dict(
+def test_when_we_retrieve_a_virtual_machine_and_get_http_error_then_raise(
     default_kwargs, headers, http_error
 ):
-
-    expected_result = []
 
     with patch("salt.utils.http.query", autospec=True) as query:
         query.return_value = http_error
 
-        actual_result = netbox._get_virtual_machines(
-            default_kwargs["api_url"],
-            default_kwargs["minion_id"],
-            headers,
-            default_kwargs["api_query_result_limit"],
-        )
-
-        assert actual_result == expected_result
+        with pytest.raises(netbox.NetBoxQueryError, match="HTTP 404: Not Found"):
+            netbox._get_virtual_machines(
+                default_kwargs["api_url"],
+                default_kwargs["minion_id"],
+                headers,
+                default_kwargs["api_query_result_limit"],
+            )
 
 
 def test_when_we_retrieve_device_interfaces_then_return_dict(
@@ -1965,25 +1963,22 @@ def test_when_we_retrieve_device_interfaces_then_return_dict(
         assert actual_result == expected_result
 
 
-def test_when_we_retrieve_device_interfaces_and_get_http_error_then_return_empty_list(
+def test_when_we_retrieve_device_interfaces_and_get_http_error_then_raise(
     default_kwargs, headers, http_error
 ):
-
-    expected_result = []
 
     with patch("salt.utils.http.query", autospec=True) as query:
         query.return_value = http_error
 
-        actual_result = netbox._get_interfaces(
-            default_kwargs["api_url"],
-            default_kwargs["minion_id"],
-            511,
-            "device",
-            headers,
-            default_kwargs["api_query_result_limit"],
-        )
-
-        assert actual_result == expected_result
+        with pytest.raises(netbox.NetBoxQueryError, match="HTTP 404: Not Found"):
+            netbox._get_interfaces(
+                default_kwargs["api_url"],
+                default_kwargs["minion_id"],
+                511,
+                "device",
+                headers,
+                default_kwargs["api_query_result_limit"],
+            )
 
 
 def test_when_we_retrieve_virtual_machine_interfaces_then_return_list(
@@ -2010,25 +2005,22 @@ def test_when_we_retrieve_virtual_machine_interfaces_then_return_list(
         assert actual_result == expected_result
 
 
-def test_when_we_retrieve_virtual_machine_interfaces_and_get_http_error_then_return_empty_list(
+def test_when_we_retrieve_virtual_machine_interfaces_and_get_http_error_then_raise(
     default_kwargs, headers, http_error
 ):
-
-    expected_result = []
 
     with patch("salt.utils.http.query", autospec=True) as query:
         query.return_value = http_error
 
-        actual_result = netbox._get_interfaces(
-            default_kwargs["api_url"],
-            default_kwargs["minion_id"],
-            222,
-            "virtual-machine",
-            headers,
-            default_kwargs["api_query_result_limit"],
-        )
-
-        assert actual_result == expected_result
+        with pytest.raises(netbox.NetBoxQueryError, match="HTTP 404: Not Found"):
+            netbox._get_interfaces(
+                default_kwargs["api_url"],
+                default_kwargs["minion_id"],
+                222,
+                "virtual-machine",
+                headers,
+                default_kwargs["api_query_result_limit"],
+            )
 
 
 def test_when_we_retrieve_device_interface_ips_then_return_list(
@@ -2075,25 +2067,22 @@ def test_connected_endpoints(
         assert actual_result == expected_result
 
 
-def test_when_we_retrieve_device_interface_ips_and_get_http_error_then_return_empty_list(
+def test_when_we_retrieve_device_interface_ips_and_get_http_error_then_raise(
     default_kwargs, headers, http_error
 ):
-
-    expected_result = []
 
     with patch("salt.utils.http.query", autospec=True) as query:
         query.return_value = http_error
 
-        actual_result = netbox._get_interface_ips(
-            default_kwargs["api_url"],
-            default_kwargs["minion_id"],
-            511,
-            "device",
-            headers,
-            default_kwargs["api_query_result_limit"],
-        )
-
-        assert actual_result == expected_result
+        with pytest.raises(netbox.NetBoxQueryError, match="HTTP 404: Not Found"):
+            netbox._get_interface_ips(
+                default_kwargs["api_url"],
+                default_kwargs["minion_id"],
+                511,
+                "device",
+                headers,
+                default_kwargs["api_query_result_limit"],
+            )
 
 
 def test_when_we_retrieve_virtual_machine_interface_ips_then_return_list(
@@ -2117,25 +2106,22 @@ def test_when_we_retrieve_virtual_machine_interface_ips_then_return_list(
         assert actual_result == expected_result
 
 
-def test_when_we_retrieve_virtual_machine_interface_ips_and_get_http_error_then_return_empty_list(
+def test_when_we_retrieve_virtual_machine_interface_ips_and_get_http_error_then_raise(
     default_kwargs, headers, http_error
 ):
-
-    expected_result = []
 
     with patch("salt.utils.http.query", autospec=True) as query:
         query.return_value = http_error
 
-        actual_result = netbox._get_interface_ips(
-            default_kwargs["api_url"],
-            default_kwargs["minion_id"],
-            222,
-            "virtual-machine",
-            headers,
-            default_kwargs["api_query_result_limit"],
-        )
-
-        assert actual_result == expected_result
+        with pytest.raises(netbox.NetBoxQueryError, match="HTTP 404: Not Found"):
+            netbox._get_interface_ips(
+                default_kwargs["api_url"],
+                default_kwargs["minion_id"],
+                222,
+                "virtual-machine",
+                headers,
+                default_kwargs["api_query_result_limit"],
+            )
 
 
 def test_associate_ips_to_interfaces_then_return_list(
@@ -2184,24 +2170,21 @@ def test_when_we_retrieve_site_details_then_return_dict(default_kwargs, headers,
         assert actual_result == expected_result
 
 
-def test_when_we_retrieve_site_details_and_get_http_error_then_return_empty_dict(
+def test_when_we_retrieve_site_details_and_get_http_error_then_raise(
     default_kwargs, headers, http_error
 ):
-
-    expected_result = {}
 
     with patch("salt.utils.http.query", autospec=True) as query:
         query.return_value = http_error
 
-        actual_result = netbox._get_site_details(
-            default_kwargs["api_url"],
-            default_kwargs["minion_id"],
-            "Site 1",
-            18,
-            headers,
-        )
-
-        assert actual_result == expected_result
+        with pytest.raises(netbox.NetBoxQueryError, match="HTTP 404: Not Found"):
+            netbox._get_site_details(
+                default_kwargs["api_url"],
+                default_kwargs["minion_id"],
+                "Site 1",
+                18,
+                headers,
+            )
 
 
 def test_when_we_retrieve_site_prefixes_then_return_list(
@@ -2245,25 +2228,22 @@ def test_when_we_retrieve_site_prefixes_nb_420_then_return_list(
         assert actual_result == expected_result
 
 
-def test_when_we_retrieve_site_prefixes_and_get_http_error_then_return_empty_list(
+def test_when_we_retrieve_site_prefixes_and_get_http_error_then_raise(
     default_kwargs, headers, http_error
 ):
-
-    expected_result = []
 
     with patch("salt.utils.http.query", autospec=True) as query:
         query.return_value = http_error
 
-        actual_result = netbox._get_site_prefixes(
-            default_kwargs["api_url"],
-            default_kwargs["minion_id"],
-            "Site 1",
-            18,
-            headers,
-            default_kwargs["api_query_result_limit"],
-        )
-
-        assert actual_result == expected_result
+        with pytest.raises(netbox.NetBoxQueryError, match="HTTP 404: Not Found"):
+            netbox._get_site_prefixes(
+                default_kwargs["api_url"],
+                default_kwargs["minion_id"],
+                "Site 1",
+                18,
+                headers,
+                default_kwargs["api_query_result_limit"],
+            )
 
 
 def test_when_we_retrieve_proxy_details_then_return_dict(
@@ -2286,24 +2266,21 @@ def test_when_we_retrieve_proxy_details_then_return_dict(
         assert actual_result == expected_result
 
 
-def test_when_we_retrieve_proxy_details_and_get_http_error_then_dont_return(
+def test_when_we_retrieve_proxy_details_and_get_http_error_then_raise(
     default_kwargs, headers, http_error
 ):
-
-    expected_result = None
 
     with patch("salt.utils.http.query", autospec=True) as query:
         query.return_value = http_error
 
-        actual_result = netbox._get_proxy_details(
-            default_kwargs["api_url"],
-            default_kwargs["minion_id"],
-            "192.0.2.1/24",
-            1,
-            headers,
-        )
-
-        assert actual_result == expected_result
+        with pytest.raises(netbox.NetBoxQueryError, match="HTTP 404: Not Found"):
+            netbox._get_proxy_details(
+                default_kwargs["api_url"],
+                default_kwargs["minion_id"],
+                "192.0.2.1/24",
+                1,
+                headers,
+            )
 
 
 def test_when_we_retrieve_multiple_devices_then_error_message_should_be_logged(
@@ -2558,3 +2535,148 @@ def test_when_we_set_proxy_return_but_get_no_value_for_primary_ip_then_error_mes
             'You have set "proxy_return" to "True" but you have not set the primary IPv4 or IPv6 address in NetBox for "%s"',
             "minion1",
         )
+
+
+# --- Fail closed when NetBox cannot be queried ------------------------------
+
+
+def _get_devices(default_kwargs, headers):
+    return netbox._get_devices(
+        default_kwargs["api_url"],
+        default_kwargs["minion_id"],
+        headers,
+        default_kwargs["api_query_result_limit"],
+    )
+
+
+def test_connection_error_raises_instead_of_keyerror(default_kwargs, headers):
+    """
+    On a connection failure salt.utils.http.query returns no "status" key,
+    which used to crash the error logging with KeyError: 'status'.
+    """
+    with patch("salt.utils.http.query", autospec=True) as query:
+        query.return_value = {"error": "[Errno 111] Connection refused", "status": 0}
+        with pytest.raises(netbox.NetBoxQueryError) as exc:
+            _get_devices(default_kwargs, headers)
+    assert "Connection refused" in str(exc.value)
+    assert "'minion1'" in str(exc.value)
+
+
+def test_error_without_status_key_raises(default_kwargs, headers):
+    with patch("salt.utils.http.query", autospec=True) as query:
+        query.return_value = {"error": "timed out"}
+        with pytest.raises(netbox.NetBoxQueryError, match="timed out"):
+            _get_devices(default_kwargs, headers)
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        {"dict": "<html>login</html>", "status": 200},
+        {"body": "", "status": 200},
+        {"dict": ["not", "an", "object"], "status": 200},
+    ],
+)
+def test_non_json_object_response_raises(default_kwargs, headers, response):
+    """
+    e.g. a proxy or captive portal answering 200 with an HTML page.
+    """
+    with patch("salt.utils.http.query", autospec=True) as query:
+        query.return_value = response
+        with pytest.raises(netbox.NetBoxQueryError, match="unexpected response"):
+            _get_devices(default_kwargs, headers)
+
+
+def test_undecodable_json_raises(default_kwargs, headers):
+    with patch("salt.utils.http.query", autospec=True) as query:
+        query.side_effect = ValueError("Expecting value: line 1 column 1 (char 0)")
+        with pytest.raises(netbox.NetBoxQueryError, match="invalid response"):
+            _get_devices(default_kwargs, headers)
+
+
+def test_error_on_a_later_page_raises_instead_of_returning_partial_results(
+    default_kwargs, headers, http_error
+):
+    first_page = {
+        "dict": {
+            "count": 2,
+            "next": "http://netbox.example.com/api/dcim/devices/?limit=1&offset=1",
+            "previous": None,
+            "results": [{"id": 1, "name": "minion1"}],
+        }
+    }
+    with patch("salt.utils.http.query", autospec=True) as query:
+        query.side_effect = [first_page, http_error]
+        with pytest.raises(netbox.NetBoxQueryError, match="HTTP 404"):
+            _get_devices(default_kwargs, headers)
+    assert query.call_count == 2
+
+
+def test_connected_device_error_raises(default_kwargs, headers, http_error):
+    interfaces = [{"id": 1, "connected_endpoints": [{"device": {"id": 7}}]}]
+    with patch("salt.utils.http.query", autospec=True) as query:
+        query.return_value = http_error
+        with pytest.raises(netbox.NetBoxQueryError, match="connected device 7"):
+            netbox._get_connected_devices(
+                default_kwargs["api_url"], default_kwargs["minion_id"], interfaces, headers
+            )
+
+
+def _unused_port():
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def test_ext_pillar_netbox_unreachable_fails_closed():
+    """
+    End to end over real HTTP: NetBox down must raise (Salt then reports a
+    pillar render error and refuses state runs), not return empty data.
+    """
+    with pytest.raises(netbox.NetBoxQueryError, match="'minion1'"):
+        netbox.ext_pillar(
+            "minion1",
+            {},
+            api_url=f"http://127.0.0.1:{_unused_port()}/api",
+            api_token=API_TOKEN,
+        )
+
+
+@pytest.fixture
+def fake_netbox():
+    server = FakeNetBox(device_name="minion1").start()
+    try:
+        yield server
+    finally:
+        server.stop()
+
+
+def test_ext_pillar_minion_not_in_netbox_is_not_an_error(fake_netbox):
+    """
+    A minion with no matching device is a valid answer: no NetBox data,
+    no error.
+    """
+    ret = netbox.ext_pillar(
+        "not-in-netbox", {}, api_url=fake_netbox.base, api_token=API_TOKEN, proxy_return=False
+    )
+    assert ret == {}
+
+
+def test_ext_pillar_bad_token_fails_closed(fake_netbox):
+    with pytest.raises(netbox.NetBoxQueryError, match="403"):
+        netbox.ext_pillar("minion1", {}, api_url=fake_netbox.base, api_token="wrong-token")
+
+
+def test_ext_pillar_succeeds_against_fake_netbox(fake_netbox):
+    ret = netbox.ext_pillar(
+        "minion1",
+        {},
+        api_url=fake_netbox.base,
+        api_token=API_TOKEN,
+        interfaces=True,
+        interface_ips=True,
+    )
+    assert ret["netbox"]["name"] == "minion1"
+    assert ret["netbox"]["site"]["name"] == "Site 1"
+    assert [p["prefix"] for p in ret["netbox"]["site"]["prefixes"]] == ["192.0.2.0/24"]
+    assert ret["proxy"]["driver"] == "junos"
