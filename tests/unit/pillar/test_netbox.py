@@ -2680,3 +2680,85 @@ def test_ext_pillar_succeeds_against_fake_netbox(fake_netbox):
     assert ret["netbox"]["site"]["name"] == "Site 1"
     assert [p["prefix"] for p in ret["netbox"]["site"]["prefixes"]] == ["192.0.2.0/24"]
     assert ret["proxy"]["driver"] == "junos"
+
+
+# --- Optional data must not crash the pillar ---------------------------------
+
+
+@pytest.fixture
+def fake_netbox_with_vm(fake_netbox):
+    """
+    The fake NetBox, plus a virtual machine that has no site (it only
+    belongs to a cluster), which NetBox allows.
+    """
+    fake_netbox.collections["virtualization/virtual-machines"] = [
+        {
+            "id": 50,
+            "url": "{base}/virtualization/virtual-machines/50/",
+            "name": "vm1",
+            "site": None,
+            "cluster": {"id": 3, "name": "cluster1"},
+            "platform": None,
+            "primary_ip": None,
+        }
+    ]
+    return fake_netbox
+
+
+@pytest.mark.parametrize(
+    "site_options",
+    [
+        {},
+        {"site_details": True, "site_prefixes": True},
+        {"site_details": False, "site_prefixes": False},
+    ],
+)
+def test_ext_pillar_virtual_machine_without_site(fake_netbox_with_vm, site_options):
+    ret = netbox.ext_pillar(
+        "vm1",
+        {},
+        api_url=fake_netbox_with_vm.base,
+        api_token=API_TOKEN,
+        devices=False,
+        virtual_machines=True,
+        proxy_return=False,
+        **site_options,
+    )
+    assert ret["netbox"]["name"] == "vm1"
+    assert ret["netbox"]["node_type"] == "virtual-machine"
+    assert ret["netbox"]["site"] is None
+    # no site details or prefixes were requested for a node without a site
+    paths = [r[1] for r in fake_netbox_with_vm.requests]
+    assert not [path for path in paths if "/dcim/sites/" in path or "/ipam/prefixes" in path]
+
+
+def test_ext_pillar_device_with_site_still_gets_site_data(fake_netbox):
+    ret = netbox.ext_pillar("minion1", {}, api_url=fake_netbox.base, api_token=API_TOKEN)
+    assert ret["netbox"]["site"]["description"] == "First site"
+    assert [p["prefix"] for p in ret["netbox"]["site"]["prefixes"]] == ["192.0.2.0/24"]
+
+
+@pytest.mark.parametrize(
+    "interface_options",
+    [
+        {},
+        {"interfaces": True},
+        {"interfaces": True, "interface_ips": True},
+    ],
+)
+def test_ext_pillar_connected_devices(fake_netbox, interface_options):
+    """
+    connected_devices used to raise KeyError: 'interfaces' unless
+    interface_ips was also enabled.
+    """
+    ret = netbox.ext_pillar(
+        "minion1",
+        {},
+        api_url=fake_netbox.base,
+        api_token=API_TOKEN,
+        connected_devices=True,
+        proxy_return=False,
+        **interface_options,
+    )
+    connected = ret["netbox"]["connected_devices"]
+    assert [device["name"] for device in connected.values()] == ["minion2"]

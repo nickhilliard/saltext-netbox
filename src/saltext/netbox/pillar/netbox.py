@@ -1066,17 +1066,29 @@ def ext_pillar(minion_id, pillar, *args, **kwargs):
             netbox_data["interfaces"] = _associate_ips_to_interfaces(
                 interfaces_list, interface_ips_list
             )
-    site_id = netbox_data["site"]["id"]
-    site_name = netbox_data["site"]["name"]
-    if site_details:
-        netbox_data["site"] = _get_site_details(api_url, minion_id, site_name, site_id, headers)
-    if site_prefixes:
-        netbox_data["site"]["prefixes"] = _get_site_prefixes(
-            api_url, minion_id, site_name, site_id, headers, api_query_result_limit
+    # A site is optional for virtual machines (they may only belong to a
+    # cluster), so only fetch site details and prefixes when there is one.
+    site = netbox_data.get("site")
+    if site:
+        site_id = site["id"]
+        site_name = site["name"]
+        if site_details:
+            netbox_data["site"] = _get_site_details(api_url, minion_id, site_name, site_id, headers)
+        if site_prefixes:
+            netbox_data["site"]["prefixes"] = _get_site_prefixes(
+                api_url, minion_id, site_name, site_id, headers, api_query_result_limit
+            )
+    elif site_details or site_prefixes:
+        log.debug(
+            "%s %r has no site in NetBox; skipping site details and prefixes",
+            node_type,
+            minion_id,
         )
     if connected_devices:
+        # Use the interfaces fetched above: netbox_data["interfaces"] is only
+        # set when interface_ips is also enabled.
         netbox_data["connected_devices"] = _get_connected_devices(
-            api_url, minion_id, netbox_data["interfaces"], headers
+            api_url, minion_id, interfaces_list, headers
         )
 
     # Add netbox_data to ret at the configured destination
