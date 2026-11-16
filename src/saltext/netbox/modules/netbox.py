@@ -1089,7 +1089,8 @@ def create_ipaddress(ip_address, family, device=None, interface=None):
             log.error(nb_addr)
             return False
         else:
-            payload["interface"] = nb_interface["id"]
+            payload["assigned_object_type"] = "dcim.interface"
+            payload["assigned_object_id"] = nb_interface["id"]
     ipaddr = _add("ipam", "ip-addresses", payload)
     if ipaddr:
         return {"ipam": {"ip-addresses": payload}}
