@@ -1134,32 +1134,41 @@ def create_circuit_provider(name, asn=None):
     name
         The name of the circuit provider
     asn
-        The ASN of the circuit provider
+        The ASN of the circuit provider. The ASN must already be in NetBox
+        (under IPAM, with its RIR). A new provider is created with that ASN;
+        an existing provider is not modified.
 
     CLI Example:
 
     .. code-block:: bash
 
-        salt myminion netbox.create_circuit_provider Telia 1299
+        salt myminion netbox.create_circuit_provider "Blackhole Networks Inc" 64512
     """
 
-    nb_circuit_provider = get_("circuits", "providers", name=name)
-    payload = {}
-    if nb_circuit_provider:
-        if nb_circuit_provider["asn"] == asn:
+    nb_asn = None
+    if asn:
+        nb_asn = get_("ipam", "asns", asn=asn)
+        if not nb_asn:
+            log.error(
+                "ASN %s is not in NetBox; add it (with its RIR) before using it for provider %r",
+                asn,
+                name,
+            )
             return False
-        else:
-            log.error("Duplicate provider with different ASN: %s: %s", name, asn)
-            raise CommandExecutionError(f"Duplicate provider with different ASN: {name}: {asn}")
-    else:
-        payload = {"name": name, "slug": slugify(name)}
-        if asn:
-            payload["asn"] = asn
-        circuit_provider = _add("circuits", "providers", payload)
-        if circuit_provider:
-            return {"circuits": {"providers": {circuit_provider["id"]: payload}}}
-        else:
-            return circuit_provider
+    nb_circuit_provider = get_("circuits", "providers", name=name)
+    if nb_circuit_provider:
+        provider_asns = [a["asn"] for a in nb_circuit_provider.get("asns") or []]
+        if not asn or nb_asn["asn"] in provider_asns:
+            return False
+        log.error("Duplicate provider with different ASN: %s: %s", name, asn)
+        raise CommandExecutionError(f"Duplicate provider with different ASN: {name}: {asn}")
+    payload = {"name": name, "slug": slugify(name)}
+    if nb_asn:
+        payload["asns"] = [nb_asn["id"]]
+    circuit_provider = _add("circuits", "providers", payload)
+    if circuit_provider:
+        return {"circuits": {"providers": {circuit_provider["id"]: payload}}}
+    return circuit_provider
 
 
 def get_circuit_provider(name, asn=None):
@@ -1177,7 +1186,7 @@ def get_circuit_provider(name, asn=None):
 
     .. code-block:: bash
 
-        salt myminion netbox.get_circuit_provider Telia 1299
+        salt myminion netbox.get_circuit_provider "Blackhole Networks Inc" 64512
     """
     if asn:
         nb_circuit_provider = get_("circuits", "providers", asn=asn)
@@ -1225,8 +1234,6 @@ def create_circuit(name, provider_id, circuit_type, description=None):
         The netbox id of the circuit provider
     circuit_type
         The name of the circuit type
-    asn
-        The ASN of the circuit provider
     description
         The description of the circuit
 
@@ -1234,7 +1241,7 @@ def create_circuit(name, provider_id, circuit_type, description=None):
 
     .. code-block:: bash
 
-        salt myminion netbox.create_circuit NEW_CIRCUIT_01 Telia Transit 1299 "New Telia circuit"
+        salt myminion netbox.create_circuit NEW_CIRCUIT_01 7 Transit "New Blackhole Networks circuit"
     """
 
     nb_circuit_provider = get_("circuits", "providers", provider_id)
