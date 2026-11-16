@@ -4,6 +4,11 @@ This project uses [Semantic Versioning](https://semver.org/) - MAJOR.MINOR.PATCH
 
 # Changelog
 
+## 0.1.dev4+ge46e1cde0.d20261112 (2026-11-16)
+
+No significant changes.
+
+
 ## 0.1.0 (2026-11-16)
 
 
@@ -35,4 +40,3 @@ This project uses [Semantic Versioning](https://semver.org/) - MAJOR.MINOR.PATCH
 
 - The execution module no longer logs the NetBox API token when a request fails; the request headers are logged with the token redacted.
 - The execution module validates object IDs, and the fields passed to update functions, before sending them to NetBox, so that crafted arguments cannot reach other API endpoints or modify unintended attributes.
-- The pillar only sends the API token to the scheme, host and port of the configured `api_url`, even when NetBox returns pagination links for another address (for example plain `http://` behind a misconfigured reverse proxy).
