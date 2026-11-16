@@ -750,10 +750,19 @@ def openconfig_interfaces(device_name=None):
                     "description"
                 ] = str(interface["description"])
     for ipaddress in ipaddresses:
+        # NetBox assigns an IP address to an object (assigned_object), which
+        # for a device is one of its interfaces.
+        assigned = ipaddress.get("assigned_object")
+        if ipaddress.get("assigned_object_type") != "dcim.interface" or not assigned:
+            continue
         ip, prefix_length = ipaddress["address"].split("/")
-        if_name = ipaddress["interface"]["name"]
-        if_name, if_unit = _if_name_unit(if_name)
-        ipvkey = "ipv{}".format(ipaddress["family"])
+        if_name, if_unit = _if_name_unit(assigned["name"])
+        family = ipaddress["family"]
+        if isinstance(family, dict):  # {"value": 4, "label": "IPv4"}
+            family = family["value"]
+        ipvkey = f"ipv{family}"
+        if if_name not in oc_if:
+            oc_if[if_name] = {"config": {"name": if_name}, "subinterfaces": {"subinterface": {}}}
         if if_unit not in oc_if[if_name]["subinterfaces"]["subinterface"]:
             oc_if[if_name]["subinterfaces"]["subinterface"][if_unit] = {
                 "config": {"index": int(if_unit), "enabled": True}
