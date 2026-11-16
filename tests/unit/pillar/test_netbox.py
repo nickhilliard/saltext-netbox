@@ -1380,24 +1380,30 @@ def site_prefixes_nb_420():
 
 @pytest.fixture
 def proxy_details_results():
+    """
+    The netbox-napalm-plugin's NAPALM configuration for platform 1.
+    """
     return {
         "dict": {
-            "id": 1,
-            "url": "https://netbox.example.com/api/dcim/platforms/1/",
-            "name": "Cisco IOS",
-            "slug": "ios",
-            "manufacturer": {
-                "id": 1,
-                "url": "https://netbox.example.com/api/dcim/manufacturers/1/",
-                "name": "Cisco",
-                "slug": "cisco",
-            },
-            "napalm_driver": "ios",
-            "napalm_args": None,
-            "description": "",
-            "device_count": 152,
-            "virtualmachine_count": 1,
-        }
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id": 1,
+                    "url": "https://netbox.example.com/api/plugins/netbox-napalm-plugin/napalmplatformconfig/1/",
+                    "platform": {
+                        "id": 1,
+                        "url": "https://netbox.example.com/api/dcim/platforms/1/",
+                        "name": "Cisco IOS",
+                        "slug": "ios",
+                    },
+                    "napalm_driver": "ios",
+                    "napalm_args": None,
+                }
+            ],
+        },
+        "status": 200,
     }
 
 
@@ -2266,14 +2272,12 @@ def test_when_we_retrieve_proxy_details_then_return_dict(
         assert actual_result == expected_result
 
 
-def test_when_we_retrieve_proxy_details_and_get_http_error_then_raise(
-    default_kwargs, headers, http_error
-):
+def test_when_we_retrieve_proxy_details_and_get_http_error_then_raise(default_kwargs, headers):
 
     with patch("salt.utils.http.query", autospec=True) as query:
-        query.return_value = http_error
+        query.return_value = {"error": "HTTP 500: Internal Server Error", "status": 500}
 
-        with pytest.raises(netbox.NetBoxQueryError, match="HTTP 404: Not Found"):
+        with pytest.raises(netbox.NetBoxQueryError, match="HTTP 500"):
             netbox._get_proxy_details(
                 default_kwargs["api_url"],
                 default_kwargs["minion_id"],
@@ -2281,6 +2285,20 @@ def test_when_we_retrieve_proxy_details_and_get_http_error_then_raise(
                 1,
                 headers,
             )
+
+
+def test_when_we_retrieve_proxy_details_the_plugin_is_queried_for_the_platform(
+    default_kwargs, headers, proxy_details_results
+):
+    with patch("salt.utils.http.query", autospec=True) as query:
+        query.return_value = proxy_details_results
+        netbox._get_proxy_details(
+            default_kwargs["api_url"], default_kwargs["minion_id"], "192.0.2.1/24", 7, headers
+        )
+    assert query.call_args.args[0] == (
+        "http://netbox.example.com/plugins/netbox-napalm-plugin/napalmplatformconfig/"
+    )
+    assert query.call_args.kwargs["params"] == {"platform_id": 7}
 
 
 def test_when_we_retrieve_multiple_devices_then_error_message_should_be_logged(
@@ -2771,3 +2789,73 @@ def test_ext_pillar_connected_devices(fake_netbox, interface_options):
     )
     connected = ret["netbox"]["connected_devices"]
     assert [device["name"] for device in connected.values()] == ["minion2"]
+
+
+# --- proxy_return with the netbox-napalm-plugin ------------------------------
+
+NAPALM_CONFIGS = "plugins/netbox-napalm-plugin/napalmplatformconfig"
+
+
+def _proxy_return(fake_netbox, **kwargs):
+    return netbox.ext_pillar(
+        "minion1",
+        {},
+        api_url=fake_netbox.base,
+        api_token=API_TOKEN,
+        proxy_return=True,
+        **kwargs,
+    )
+
+
+def test_proxy_return_uses_the_napalm_plugins_driver(fake_netbox):
+    ret = _proxy_return(fake_netbox, proxy_username="admin")
+    assert ret["proxy"] == {
+        "host": "192.0.2.10",
+        "driver": "junos",
+        "proxytype": "napalm",
+        "username": "admin",
+    }
+    plugin_requests = [r[1] for r in fake_netbox.requests if NAPALM_CONFIGS in r[1]]
+    assert len(plugin_requests) == 1
+    assert "platform_id=1" in plugin_requests[0]
+
+
+def test_proxy_return_without_the_napalm_plugin_logs_an_error(fake_netbox):
+    del fake_netbox.collections[NAPALM_CONFIGS]  # NetBox answers 404
+    with patch.object(netbox.log, "error") as fake_error:
+        ret = _proxy_return(fake_netbox)
+    assert "proxy" not in ret
+    # the rest of the pillar is still returned
+    assert ret["netbox"]["name"] == "minion1"
+    assert "netbox-napalm-plugin is not installed" in fake_error.call_args.args[0]
+
+
+@pytest.mark.parametrize("configs", [[], [{"id": 1, "platform": {"id": 1}, "napalm_driver": ""}]])
+def test_proxy_return_without_a_driver_for_the_platform_logs_an_error(fake_netbox, configs):
+    fake_netbox.collections[NAPALM_CONFIGS] = configs
+    with patch.object(netbox.log, "error") as fake_error:
+        ret = _proxy_return(fake_netbox)
+    assert "proxy" not in ret
+    assert ret["netbox"]["name"] == "minion1"
+    assert "no NAPALM driver is configured" in fake_error.call_args.args[0]
+
+
+def test_proxy_return_ignores_the_configs_of_other_platforms(fake_netbox):
+    fake_netbox.collections[NAPALM_CONFIGS][0]["platform"]["id"] = 2
+    ret = _proxy_return(fake_netbox)
+    assert "proxy" not in ret
+
+
+def test_proxy_return_fails_closed_if_the_plugin_cannot_be_read(fake_netbox):
+    fake_netbox.forbidden.add(NAPALM_CONFIGS)
+    with pytest.raises(netbox.NetBoxQueryError, match="NAPALM configuration.*403"):
+        _proxy_return(fake_netbox)
+
+
+def test_a_404_is_only_tolerated_where_asked_for():
+    with patch("salt.utils.http.query", autospec=True) as query:
+        query.return_value = {"error": "HTTP 404: Not Found", "status": 404}
+        url = "http://netbox.example.com/api/x/"
+        assert netbox._query(url, {}, "minion1", "x", not_found_ok=True) is None
+        with pytest.raises(netbox.NetBoxQueryError, match="404"):
+            netbox._query(url, {}, "minion1", "x")

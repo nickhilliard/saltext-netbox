@@ -29,7 +29,15 @@ PLATFORM = {
     "url": "{base}/dcim/platforms/1/",
     "name": "Junos",
     "slug": "junos",
+}
+
+# A NAPALM configuration of the netbox-napalm-plugin
+NAPALM_PLATFORM_CONFIG = {
+    "id": 1,
+    "url": "{base}/plugins/netbox-napalm-plugin/napalmplatformconfig/1/",
+    "platform": {"id": 1, "url": "{base}/dcim/platforms/1/", "name": "Junos", "slug": "junos"},
     "napalm_driver": "junos",
+    "napalm_args": None,
 }
 
 DEVICE = {
@@ -119,7 +127,7 @@ def _matches(obj, params):
         if key == "name":
             if obj.get("name") != value:
                 return False
-        elif key in ("device_id", "site_id"):
+        elif key in ("device_id", "site_id", "platform_id"):
             parent = obj.get(key[:-3]) or {}
             if str(parent.get("id")) != value:
                 return False
@@ -142,6 +150,9 @@ class FakeNetBox:
             "dcim/devices": self.devices,
             "dcim/sites": [copy.deepcopy(SITE)],
             "dcim/platforms": [copy.deepcopy(PLATFORM)],
+            "plugins/netbox-napalm-plugin/napalmplatformconfig": [
+                copy.deepcopy(NAPALM_PLATFORM_CONFIG)
+            ],
             "dcim/interfaces": copy.deepcopy(INTERFACES),
             "ipam/ip-addresses": copy.deepcopy(IP_ADDRESSES),
             "ipam/prefixes": copy.deepcopy(PREFIXES),
@@ -151,6 +162,8 @@ class FakeNetBox:
         }
         for ip in self.collections["ipam/ip-addresses"]:
             ip["device"] = {"id": 1}
+        # collections the API token may not view (answered with 403)
+        self.forbidden = set()
         self.requests = []
         self._server = None
         self._thread = None
@@ -176,6 +189,8 @@ class FakeNetBox:
         if path == "status":
             return 200, {"netbox-version": API_VERSION}
         params = parse_qs(url.query)
+        if path in self.forbidden:
+            return 403, {"detail": "You do not have permission to perform this action."}
         if path in self.collections:
             results = [o for o in self.collections[path] if _matches(o, params)]
             return 200, {"count": len(results), "next": None, "previous": None, "results": results}

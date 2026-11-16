@@ -730,9 +730,12 @@ class NetBoxQueryError(salt.exceptions.SaltException):
     """
 
 
-def _query(url, headers, minion_id, what, params=None):
+def _query(url, headers, minion_id, what, params=None, not_found_ok=False):
     """
     GET ``url`` from the NetBox API and return the decoded JSON body.
+
+    With ``not_found_ok``, return ``None`` if NetBox answers 404 Not Found,
+    for endpoints that may not exist, such as those of NetBox plugins.
 
     This fails closed: if NetBox cannot be reached, times out, answers with
     an HTTP error, or returns something that is not a JSON object, raise
@@ -749,6 +752,8 @@ def _query(url, headers, minion_id, what, params=None):
             f"Unable to retrieve {what} for minion {minion_id!r} from NetBox: "
             f"invalid response: {exc}"
         ) from exc
+    if not_found_ok and ret.get("status") == 404:
+        return None
     if "error" in ret:
         raise NetBoxQueryError(
             f"Unable to retrieve {what} for minion {minion_id!r} from NetBox: "
@@ -966,25 +971,50 @@ def _get_site_prefixes(api_url, minion_id, site_name, site_id, headers, api_quer
 
 
 def _get_proxy_details(api_url, minion_id, primary_ip, platform_id, headers):
+    """
+    Return the ``proxy`` pillar data for a device, using the NAPALM driver
+    that the netbox-napalm-plugin has configured for its platform, or
+    ``None`` if there is none.
+    """
     log.debug(
         'Retrieving proxy details for "%s"',
         minion_id,
     )
-    platform_url = "{api_url}/{app}/{endpoint}/{id}/".format(
-        api_url=api_url, app="dcim", endpoint="platforms", id=platform_id
+    napalm_config_url = "{api_url}/{app}/{endpoint}/".format(
+        api_url=api_url, app="plugins/netbox-napalm-plugin", endpoint="napalmplatformconfig"
     )
-    platform = _query(platform_url, headers, minion_id, f"platform {platform_id}")
-    # Assign results from API call to "proxy" key if the platform has a
-    # napalm_driver defined.
-    napalm_driver = platform.get("napalm_driver")
-    if napalm_driver:
-        proxy = {
-            "host": str(ipaddress.ip_interface(primary_ip).ip),
-            "driver": napalm_driver,
-            "proxytype": "napalm",
-        }
-        return proxy
-    return None
+    napalm_configs = _query(
+        napalm_config_url,
+        headers,
+        minion_id,
+        f"NAPALM configuration of platform {platform_id}",
+        params={"platform_id": platform_id},
+        not_found_ok=True,
+    )
+    if napalm_configs is None:
+        log.error(
+            'You have set "proxy_return" to "True" but the netbox-napalm-plugin '
+            "is not installed in NetBox, so no proxy details are returned for %r",
+            minion_id,
+        )
+        return None
+    # The plugin allows at most one NAPALM configuration per platform.
+    napalm_driver = None
+    for napalm_config in napalm_configs.get("results", []):
+        napalm_driver = napalm_config.get("napalm_driver")
+    if not napalm_driver:
+        log.error(
+            'You have set "proxy_return" to "True" but no NAPALM driver is configured '
+            "in the netbox-napalm-plugin for platform %s, the platform of %r",
+            platform_id,
+            minion_id,
+        )
+        return None
+    return {
+        "host": str(ipaddress.ip_interface(primary_ip).ip),
+        "driver": napalm_driver,
+        "proxytype": "napalm",
+    }
 
 
 def ext_pillar(minion_id, pillar, *args, **kwargs):
