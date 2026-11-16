@@ -4,11 +4,6 @@ This project uses [Semantic Versioning](https://semver.org/) - MAJOR.MINOR.PATCH
 
 # Changelog
 
-## 0.1.dev4+ge46e1cde0.d20261112 (2026-11-16)
-
-Imported from original salt-3006 code written by Zach Moody <zmoody@do.co>.
-
-
 ## 0.1.0 (2026-11-16)
 
 
@@ -31,6 +26,7 @@ Imported from original salt-3006 code written by Zach Moody <zmoody@do.co>.
 
 ### Added
 
+- Imported from original salt-3006 code written by Zach Moody (@zachmoody).
 - Initial release of saltext-netbox: the `netbox` execution module and external pillar, which were removed from Salt in 3008, as a Salt extension. Requires NetBox 4.0 or later.
 - `netbox.get` and `netbox.filter` only access the NetBox apps listed in the new `netbox:allowed_apps` option (by default `circuits`, `dcim`, `ipam`, `tenancy`, `virtualization`, `vpn` and `wireless`), so callers cannot read API tokens, users or configuration through them.
 - With `proxy_return` enabled, the pillar takes the NAPALM driver from the [netbox-napalm-plugin](https://github.com/netbox-community/netbox-napalm-plugin), where NetBox 4 keeps it. If the plugin is not installed, or has no driver for the device's platform, no `proxy` data is returned and an error is logged.
