@@ -637,12 +637,16 @@ def create_interface_connection(interface_a, interface_b):
     """
     .. versionadded:: 2019.2.0
 
-    Create an interface connection between 2 interfaces
+    Connect two interfaces with a cable.
 
     interface_a
         Interface id for Side A
+
     interface_b
         Interface id for Side B
+
+    Returns the new cable, keyed by its id, or ``False`` if NetBox refused
+    it (for example, because one of the interfaces is already connected).
 
     CLI Example:
 
@@ -650,10 +654,17 @@ def create_interface_connection(interface_a, interface_b):
 
         salt myminion netbox.create_interface_connection 123 456
     """
-    payload = {"interface_a": interface_a, "interface_b": interface_b}
-    ret = _add("dcim", "interface-connections", payload)
+    payload = {
+        "a_terminations": [
+            {"object_type": "dcim.interface", "object_id": _validate_id(interface_a)}
+        ],
+        "b_terminations": [
+            {"object_type": "dcim.interface", "object_id": _validate_id(interface_b)}
+        ],
+    }
+    ret = _add("dcim", "cables", payload)
     if ret:
-        return {"dcim": {"interface-connections": {ret["id"]: payload}}}
+        return {"dcim": {"cables": {ret["id"]: payload}}}
     else:
         return ret
 
