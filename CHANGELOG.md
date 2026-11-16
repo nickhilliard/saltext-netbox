@@ -6,7 +6,7 @@ This project uses [Semantic Versioning](https://semver.org/) - MAJOR.MINOR.PATCH
 
 ## 0.1.dev4+ge46e1cde0.d20261112 (2026-11-16)
 
-No significant changes.
+Imported from original salt-3006 code written by Zach Moody <zmoody@do.co>.
 
 
 ## 0.1.0 (2026-11-16)

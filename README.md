@@ -1,6 +1,10 @@
 # Salt Extension for Netbox
 
-Salt Extension for interacting with Netbox
+Salt Extension for interacting with Netbox.
+
+This extension was originally written by Zach Moody <zmoody@do.co> and
+bundled with Salt <= 3006, but was expunged in the Great Salt Module
+Migration prior to the release of Salt 3008.
 
 ## Security
 
