@@ -499,17 +499,14 @@ def create_device(name, role, model, manufacturer, site):
         if not nb_site:
             return False
 
-        status = {"label": "Active", "value": 1}
     except pynetbox.RequestError as e:
         _log_request_error(e)
         return False
 
     payload = {
         "name": name,
-        "display_name": name,
-        "slug": slugify(name),
         "device_type": nb_type["id"],
-        "device_role": nb_role["id"],
+        "role": nb_role["id"],
         "site": nb_site["id"],
     }
     new_dev = _add("dcim", "devices", payload)
