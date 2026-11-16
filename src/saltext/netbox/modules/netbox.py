@@ -1263,7 +1263,8 @@ def create_circuit_termination(circuit, interface, device, speed, xconnect_id=No
     """
     .. versionadded:: 2019.2.0
 
-    Terminate a circuit on an interface
+    Terminate a circuit on an interface: create the circuit termination at
+    the site of the device, and connect it to the interface with a cable.
 
     circuit
         The name of the circuit
@@ -1286,23 +1287,47 @@ def create_circuit_termination(circuit, interface, device, speed, xconnect_id=No
     """
 
     nb_device = get_("dcim", "devices", name=device)
+    if not nb_device:
+        return False
     nb_interface = get_("dcim", "interfaces", device_id=nb_device["id"], name=interface)
     nb_circuit = get_("circuits", "circuits", cid=circuit)
-    if nb_circuit and nb_device:
-        nb_termination = get_("circuits", "circuit-terminations", q=nb_circuit["cid"])
-        if nb_termination:
-            return False
-        payload = {
-            "circuit": nb_circuit["id"],
-            "interface": nb_interface["id"],
-            "site": nb_device["site"]["id"],
-            "port_speed": speed,
-            "term_side": term_side,
-        }
-        if xconnect_id:
-            payload["xconnect_id"] = xconnect_id
-        circuit_termination = _add("circuits", "circuit-terminations", payload)
-        if circuit_termination:
-            return {"circuits": {"circuit-terminations": {circuit_termination["id"]: payload}}}
-        else:
-            return circuit_termination
+    if not nb_circuit or not nb_interface:
+        return False
+    nb_termination = get_(
+        "circuits", "circuit-terminations", circuit_id=nb_circuit["id"], term_side=term_side
+    )
+    if nb_termination:
+        return False
+    # A circuit termination attaches to a site (or another terminating
+    # object) and is connected to an interface by a cable.
+    payload = {
+        "circuit": nb_circuit["id"],
+        "termination_type": "dcim.site",
+        "termination_id": nb_device["site"]["id"],
+        "port_speed": speed,
+        "term_side": term_side,
+    }
+    if xconnect_id:
+        payload["xconnect_id"] = xconnect_id
+    circuit_termination = _add("circuits", "circuit-terminations", payload)
+    if not circuit_termination:
+        return False
+    cable_payload = {
+        "a_terminations": [
+            {"object_type": "circuits.circuittermination", "object_id": circuit_termination["id"]}
+        ],
+        "b_terminations": [{"object_type": "dcim.interface", "object_id": nb_interface["id"]}],
+    }
+    cable = _add("dcim", "cables", cable_payload)
+    if not cable:
+        log.error(
+            "Created circuit termination %s, but could not connect it to interface %r of %r",
+            circuit_termination["id"],
+            interface,
+            device,
+        )
+        return False
+    return {
+        "circuits": {"circuit-terminations": {circuit_termination["id"]: payload}},
+        "dcim": {"cables": {cable["id"]: cable_payload}},
+    }
