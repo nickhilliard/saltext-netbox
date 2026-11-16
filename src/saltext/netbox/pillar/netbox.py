@@ -1100,9 +1100,8 @@ def ext_pillar(minion_id, pillar, *args, **kwargs):
             interface_ips_list = _get_interface_ips(
                 api_url, minion_id, node_id, node_type, headers, api_query_result_limit
             )
-            netbox_data["interfaces"] = _associate_ips_to_interfaces(
-                interfaces_list, interface_ips_list
-            )
+            interfaces_list = _associate_ips_to_interfaces(interfaces_list, interface_ips_list)
+        netbox_data["interfaces"] = interfaces_list
     # A site is optional for virtual machines (they may only belong to a
     # cluster), so only fetch site details and prefixes when there is one.
     site = netbox_data.get("site")
@@ -1122,8 +1121,6 @@ def ext_pillar(minion_id, pillar, *args, **kwargs):
             minion_id,
         )
     if connected_devices:
-        # Use the interfaces fetched above: netbox_data["interfaces"] is only
-        # set when interface_ips is also enabled.
         netbox_data["connected_devices"] = _get_connected_devices(
             api_url, minion_id, interfaces_list, headers
         )

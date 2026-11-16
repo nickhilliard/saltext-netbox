@@ -2709,6 +2709,53 @@ def test_proxy_return_is_off_by_default(fake_netbox):
     assert not [r for r in fake_netbox.requests if "/dcim/platforms/" in r[1]]
 
 
+# --- interfaces without interface_ips ----------------------------------------
+
+
+def test_interfaces_are_returned_without_interface_ips(fake_netbox):
+    ret = netbox.ext_pillar(
+        "minion1", {}, api_url=fake_netbox.base, api_token=API_TOKEN, interfaces=True
+    )
+    interfaces = ret["netbox"]["interfaces"]
+    assert [i["name"] for i in interfaces] == [
+        i["name"] for i in fake_netbox.collections["dcim/interfaces"] if i["device"]["id"] == 1
+    ]
+    assert interfaces
+    # no IP addresses were asked for, so none are fetched or attached
+    assert not any("ip_addresses" in i for i in interfaces)
+    assert not [r for r in fake_netbox.requests if "/ipam/ip-addresses/" in r[1]]
+
+
+def test_interfaces_are_returned_with_interface_ips(fake_netbox):
+    ret = netbox.ext_pillar(
+        "minion1",
+        {},
+        api_url=fake_netbox.base,
+        api_token=API_TOKEN,
+        interfaces=True,
+        interface_ips=True,
+    )
+    assert any(i.get("ip_addresses") for i in ret["netbox"]["interfaces"])
+
+
+def test_a_device_without_interfaces_gets_an_empty_list(fake_netbox):
+    fake_netbox.collections["dcim/interfaces"] = []
+    ret = netbox.ext_pillar(
+        "minion1",
+        {},
+        api_url=fake_netbox.base,
+        api_token=API_TOKEN,
+        interfaces=True,
+        interface_ips=True,
+    )
+    assert ret["netbox"]["interfaces"] == []
+
+
+def test_no_interfaces_key_unless_asked_for(fake_netbox):
+    ret = netbox.ext_pillar("minion1", {}, api_url=fake_netbox.base, api_token=API_TOKEN)
+    assert "interfaces" not in ret["netbox"]
+
+
 # --- Optional data must not crash the pillar ---------------------------------
 
 
