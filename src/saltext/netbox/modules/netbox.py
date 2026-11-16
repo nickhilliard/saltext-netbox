@@ -993,7 +993,7 @@ def make_interface_lag(device_name, interface_name):
 
         salt myminion netbox.make_interface_lag edge_router ae13
     """
-    return update_interface(device_name, interface_name, form_factor=200)
+    return update_interface(device_name, interface_name, type="lag")
 
 
 def make_interface_child(device_name, interface_name, parent_name):
