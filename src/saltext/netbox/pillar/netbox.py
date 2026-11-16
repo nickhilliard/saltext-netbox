@@ -33,13 +33,13 @@ error and gets no NetBox pillar data.
 
 ``proxy_return`` is an optional configuration setting which allows this
 plugin to use the netbox-napalm-plugin module to dynamically configure the
-``username``, ``driver`` and ``host`` proxy settings for this plugin.  In
-other words, instead of statically configuring these parameters in the
-device's pillar, these settings are configured from within NetBox itself.
+``driver`` and ``host`` proxy settings for this plugin.  In other words,
+instead of statically configuring these parameters in the device's pillar,
+these settings are configured from within NetBox itself.
 
 To enable this feature, the ``proxy_return`` setting should be set to
 ``True``, the `netbox-napalm-plugin
-<https://github.com/netbox-community/netbox-napalm-plugin>` plugin should be
+<https://github.com/netbox-community/netbox-napalm-plugin>`_ plugin should be
 installed in NetBox, and the device ``platform`` and ``primary_ip`` settings
 should be configured from within NetBox.
 
@@ -47,11 +47,6 @@ should be configured from within NetBox.
 
   proxy_return: True
   proxy_username: admin
-
-By default, this module will query the NetBox API for the platform
-associated with the device, and use the 'NAPALM driver' field to
-set the napalm proxy-minion driver. (Currently only 'napalm' is supported
-for drivertype.)
 
 This module currently only supports the napalm proxy minion and assumes
 you will use SSH keys to authenticate to the network device.  If password

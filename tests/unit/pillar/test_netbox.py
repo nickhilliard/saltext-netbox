@@ -2675,11 +2675,20 @@ def test_ext_pillar_succeeds_against_fake_netbox(fake_netbox):
         api_token=API_TOKEN,
         interfaces=True,
         interface_ips=True,
+        proxy_return=True,
     )
     assert ret["netbox"]["name"] == "minion1"
     assert ret["netbox"]["site"]["name"] == "Site 1"
     assert [p["prefix"] for p in ret["netbox"]["site"]["prefixes"]] == ["192.0.2.0/24"]
     assert ret["proxy"]["driver"] == "junos"
+
+
+def test_proxy_return_is_off_by_default(fake_netbox):
+    ret = netbox.ext_pillar("minion1", {}, api_url=fake_netbox.base, api_token=API_TOKEN)
+    assert ret["netbox"]["name"] == "minion1"
+    assert "proxy" not in ret
+    # the platform is not looked up either
+    assert not [r for r in fake_netbox.requests if "/dcim/platforms/" in r[1]]
 
 
 # --- Optional data must not crash the pillar ---------------------------------
