@@ -31,9 +31,17 @@ simply has no matching device or virtual machine in NetBox is not an
 error and gets no NetBox pillar data.
 
 
-The following options are optional, and determine whether or not
-the module will attempt to configure the ``proxy`` pillar data for
-use with the napalm proxy-minion:
+``proxy_return`` is an optional configuration setting which allows this
+plugin to use the netbox-napalm-plugin module to dynamically configure the
+``username``, ``driver`` and ``host`` proxy settings for this plugin.  In
+other words, instead of statically configuring these parameters in the
+device's pillar, these settings are configured from within NetBox itself.
+
+To enable this feature, the ``proxy_return`` setting should be set to
+``True``, the `netbox-napalm-plugin
+<https://github.com/netbox-community/netbox-napalm-plugin>` plugin should be
+installed in NetBox, and the device ``platform`` and ``primary_ip`` settings
+should be configured from within NetBox.
 
 .. code-block:: yaml
 
@@ -54,6 +62,10 @@ key in pillar_roots (or git_pillar) with just the ``passwd`` key and use
 If you use more than one username for your devices, leave proxy_username unset,
 and set the ``username`` key in your pillar as well. If any additional options
 for the proxy setup are needed, they should also be configured in pillar_roots.
+
+Prior to Salt 3008, ``proxy_return`` defaulted to ``True``.  This has been
+changed to ``False`` to make it easier to get a working configuration if the
+``netbox-napalm-plugin`` module is not installed in NetBox.
 
 Other available configuration options:
 
@@ -997,7 +1009,7 @@ def ext_pillar(minion_id, pillar, *args, **kwargs):
     site_details = kwargs.get("site_details", True)
     site_prefixes = kwargs.get("site_prefixes", True)
     proxy_username = kwargs.get("proxy_username", None)
-    proxy_return = kwargs.get("proxy_return", True)
+    proxy_return = kwargs.get("proxy_return", False)
     connected_devices = kwargs.get("connected_devices", False)
     destination_pillar_key = kwargs.get("destination_pillar_key", "netbox")
     if connected_devices and not interfaces:
