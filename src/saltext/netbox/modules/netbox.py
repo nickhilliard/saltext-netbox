@@ -825,6 +825,7 @@ def create_interface(
     lag=None,
     lag_parent=None,
     form_factor=None,
+    interface_type=None,
 ):
     """
     .. versionadded:: 2019.2.0
@@ -847,14 +848,30 @@ def create_interface(
     lag_parent
         String of interface lag parent name, e.g., ``ae13``
     form_factor
-        Integer of form factor id, obtained through _choices API endpoint, e.g., ``200``
+        No longer supported: NetBox replaced the interface form factor with
+        its type in version 2.6. Use ``interface_type`` instead.
+
+    interface_type
+        The NetBox interface type, e.g., ``1000base-t`` or ``100gbase-x-qsfp28``.
+        NetBox requires a type, so this must be set unless ``lag`` is true:
+        the type of a LAG interface is ``lag``.
 
     CLI Example:
 
     .. code-block:: bash
 
-        salt myminion netbox.create_interface edge_router ae13 description="Core uplink"
+        salt myminion netbox.create_interface edge_router xe-0/0/1 interface_type=10gbase-x-sfpp description="Core uplink"
+        salt myminion netbox.create_interface edge_router ae13 lag=True
     """
+    if form_factor is not None:
+        raise CommandExecutionError(
+            "form_factor is no longer supported by NetBox; use interface_type instead, "
+            "e.g. interface_type=1000base-t"
+        )
+    if not lag and not interface_type:
+        raise CommandExecutionError(
+            "interface_type is required (unless lag is true), e.g. interface_type=1000base-t"
+        )
     nb_device = get_("dcim", "devices", name=device_name)
     if not nb_device:
         return False
@@ -866,19 +883,13 @@ def create_interface(
         description = ""
     if not enabled:
         enabled = "false"
-    # Set default form factor to 1200. This maps to SFP+ (10GE). This should be addressed by
-    # the _choices endpoint.
     payload = {
         "device": nb_device["id"],
         "name": interface_name,
         "description": description,
         "enabled": enabled,
-        "form_factor": 1200,
+        "type": "lag" if lag else interface_type,
     }
-    if form_factor is not None:
-        payload["form_factor"] = form_factor
-    if lag:
-        payload["form_factor"] = 200
     if lag_parent:
         payload["lag"] = lag_interface["id"]
     if mac_address:
